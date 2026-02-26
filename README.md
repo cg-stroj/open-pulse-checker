@@ -2,6 +2,23 @@
 
 Open Pulse Checker is a security-first, self-host-first OSS monitoring platform.
 
+## Daily update (2026-02-26)
+### ✅ What we completed today
+- Stabilized and delivered core platform slices from **Phase 1.x to Phase 2.0**.
+- Production hardening is in place: distributed scheduler locks, rate limiting, API keys, DLQ, audit logging, and PostgreSQL prod profile.
+- Public status pages are now implemented with slug-based public endpoint and incident timeline.
+- Security posture was strengthened across auth/authz, webhook delivery reliability, and operational runbooks.
+- Latest validation: full automated test suite green (`tests=28, failures=0, errors=0, skipped=0`).
+
+### ⏭️ What remains (planned for tomorrow)
+- Start **Phase 2.1**:
+  - notification policy customization,
+  - maintenance windows,
+  - incident annotations / manual incident updates.
+- Add paging/filtering + richer audit querying for operations.
+- Extend multi-node operational tooling and dashboards for lock/queue metrics.
+- Prepare next release checklist and cut the next milestone increment.
+
 ## Phase 2.0 delivered (status pages + public timeline API)
 - Public status page endpoint: `GET /api/v1/public/status-pages/{slug}`
 - Admin status page management endpoints:
