@@ -1,4 +1,4 @@
-package io.pulseguard.api;
+package io.openpulsechecker.api;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -22,7 +22,7 @@ class HealthControllerTest {
         mockMvc.perform(get("/api/v1/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"))
-                .andExpect(jsonPath("$.service").value("pulseguard"))
+                .andExpect(jsonPath("$.service").value("open-pulse-checker"))
                 .andExpect(jsonPath("$.timestamp").isNotEmpty());
     }
 }

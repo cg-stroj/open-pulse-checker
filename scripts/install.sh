@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "Pulseguard installer skeleton (Linux/macOS)"
+echo "Open Pulse Checker installer skeleton (Linux/macOS)"
 echo "This is Phase 0 preflight only."
 
 bash "$SCRIPT_DIR/preflight-checks.sh"

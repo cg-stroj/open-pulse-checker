@@ -13,7 +13,7 @@
 - No embedded credentials or secrets in source
 
 ## Future split (target)
-- `pulseguard-api` (control plane and API)
-- `pulseguard-agent` (node/host metrics collection)
-- `pulseguard-ui` (web dashboard)
-- `pulseguard-rules` (detection rules and policy packs)
+- `open-pulse-checker-api` (control plane and API)
+- `open-pulse-checker-agent` (node/host metrics collection)
+- `open-pulse-checker-ui` (web dashboard)
+- `open-pulse-checker-rules` (detection rules and policy packs)

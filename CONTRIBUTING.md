@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in Pulseguard.
+Thanks for your interest in Open Pulse Checker.
 
 ## Development setup
 1. Install Java 21 and Maven

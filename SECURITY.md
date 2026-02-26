@@ -1,6 +1,6 @@
 # Security Policy
 
-Pulseguard follows a security-first development model and aligns with **OWASP ASVS** principles as a baseline.
+Open Pulse Checker follows a security-first development model and aligns with **OWASP ASVS** principles as a baseline.
 
 ## Baseline controls (Phase 0)
 - Secure defaults and least privilege

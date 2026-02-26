@@ -1,4 +1,4 @@
-Write-Host "[preflight] Running Pulseguard preflight checks (Windows)..."
+Write-Host "[preflight] Running Open Pulse Checker preflight checks (Windows)..."
 
 $failed = $false
 

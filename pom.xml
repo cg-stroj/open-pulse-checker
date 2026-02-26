@@ -9,10 +9,10 @@
         <relativePath/>
     </parent>
 
-    <groupId>io.pulseguard</groupId>
-    <artifactId>pulseguard</artifactId>
+    <groupId>io.openpulsechecker</groupId>
+    <artifactId>open-pulse-checker</artifactId>
     <version>0.1.0-SNAPSHOT</version>
-    <name>pulseguard</name>
+    <name>Open Pulse Checker</name>
     <description>Security-first, self-host-first OSS monitoring platform foundation</description>
 
     <properties>

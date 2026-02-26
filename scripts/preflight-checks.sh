@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "[preflight] Running Pulseguard preflight checks (Linux/macOS)..."
+echo "[preflight] Running Open Pulse Checker preflight checks (Linux/macOS)..."
 
 check_cmd() {
   local cmd="$1"

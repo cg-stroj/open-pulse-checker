@@ -1,12 +1,12 @@
-package io.pulseguard;
+package io.openpulsechecker;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class PulseguardApplication {
+public class OpenPulseCheckerApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(PulseguardApplication.class, args);
+        SpringApplication.run(OpenPulseCheckerApplication.class, args);
     }
 }

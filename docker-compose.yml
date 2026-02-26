@@ -1,10 +1,10 @@
 services:
-  pulseguard:
+  open-pulse-checker:
     build:
       context: .
       dockerfile: Dockerfile
-    image: pulseguard:local
-    container_name: pulseguard
+    image: open-pulse-checker:local
+    container_name: open-pulse-checker
     ports:
       - "8080:8080"
     environment:

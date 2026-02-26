@@ -1,6 +1,6 @@
-# Pulseguard
+# Open Pulse Checker
 
-Pulseguard is a **security-first, self-host-first OSS monitoring platform** in active development.
+Open Pulse Checker is a **security-first, self-host-first OSS monitoring platform** in active development.
 Phase 0 establishes a hardened baseline for backend services, delivery pipelines, and contributor workflows.
 
 ## Vision

@@ -1,4 +1,4 @@
-Write-Host "Pulseguard installer skeleton (Windows)"
+Write-Host "Open Pulse Checker installer skeleton (Windows)"
 Write-Host "This is Phase 0 preflight only."
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path

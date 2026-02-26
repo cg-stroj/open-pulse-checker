@@ -1,4 +1,4 @@
-package io.pulseguard.api;
+package io.openpulsechecker.api;
 
 import java.time.Instant;
 import java.util.Map;
@@ -16,7 +16,7 @@ public class HealthController {
     public Map<String, Object> health() {
         return Map.of(
                 "status", "UP",
-                "service", "pulseguard",
+                "service", "open-pulse-checker",
                 "timestamp", Instant.now().toString());
     }
 }

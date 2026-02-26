@@ -1,6 +1,6 @@
 spring:
   application:
-    name: pulseguard
+    name: open-pulse-checker
 
 server:
   port: 8080
