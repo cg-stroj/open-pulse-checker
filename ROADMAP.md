@@ -9,10 +9,14 @@ Delivered in this kickoff slice:
 - ✅ Incident lifecycle transitions (OPEN on DOWN, RESOLVED on recovery)
 - ✅ Unit + integration test baseline
 
+Delivered Phase 1.1 increments:
+- ✅ scheduler orchestration for periodic checks (bounded worker pool, due-time logic, anti-duplicate in-flight guard)
+- ✅ basic authn/authz baseline (Spring Security, ADMIN/VIEWER roles, write endpoint protection)
+- ✅ alerting pipeline baseline (notifier abstraction + webhook notifier)
+
 Next Phase 1 increments:
-- scheduler orchestration for periodic checks
-- basic authn/authz baseline
 - paging/filtering and audit improvements
+- notification policy controls and retry strategy
 
 ## Phase 2
 - Agent-based distributed checks

@@ -24,3 +24,17 @@ management:
     web:
       exposure:
         include: health,info
+
+openpulse:
+  scheduler:
+    poll-interval-ms: 5000
+    worker-pool-size: 4
+  alerting:
+    webhook:
+      enabled: false
+      url: ""
+  security:
+    admin-username: admin
+    admin-password: admin-change-me
+    viewer-username: viewer
+    viewer-password: viewer-change-me

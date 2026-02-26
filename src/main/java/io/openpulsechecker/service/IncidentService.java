@@ -1,5 +1,8 @@
 package io.openpulsechecker.service;
 
+import io.openpulsechecker.alerting.AlertDispatchService;
+import io.openpulsechecker.alerting.AlertEvent;
+import io.openpulsechecker.alerting.AlertEventType;
 import io.openpulsechecker.domain.CheckStatus;
 import io.openpulsechecker.domain.IncidentState;
 import io.openpulsechecker.persistence.IncidentEntity;
@@ -12,9 +15,11 @@ import org.springframework.stereotype.Service;
 public class IncidentService {
 
     private final IncidentRepository incidentRepository;
+    private final AlertDispatchService alertDispatchService;
 
-    public IncidentService(IncidentRepository incidentRepository) {
+    public IncidentService(IncidentRepository incidentRepository, AlertDispatchService alertDispatchService) {
         this.incidentRepository = incidentRepository;
+        this.alertDispatchService = alertDispatchService;
     }
 
     public void applyTransition(UUID monitorId, CheckStatus checkStatus, Instant checkedAt, String reason) {
@@ -26,7 +31,14 @@ public class IncidentService {
             incident.setState(IncidentState.OPEN);
             incident.setOpenedAt(checkedAt);
             incident.setReason(reason == null || reason.isBlank() ? "Monitor reported DOWN" : reason);
-            incidentRepository.save(incident);
+            IncidentEntity saved = incidentRepository.save(incident);
+            alertDispatchService.dispatch(new AlertEvent(
+                    AlertEventType.INCIDENT_OPENED,
+                    monitorId,
+                    saved.getId(),
+                    checkedAt,
+                    saved.getReason()
+            ));
             return;
         }
 
@@ -34,7 +46,14 @@ public class IncidentService {
             IncidentEntity incident = openIncident.get();
             incident.setState(IncidentState.RESOLVED);
             incident.setResolvedAt(checkedAt);
-            incidentRepository.save(incident);
+            IncidentEntity saved = incidentRepository.save(incident);
+            alertDispatchService.dispatch(new AlertEvent(
+                    AlertEventType.INCIDENT_RESOLVED,
+                    monitorId,
+                    saved.getId(),
+                    checkedAt,
+                    saved.getReason()
+            ));
         }
     }
 }

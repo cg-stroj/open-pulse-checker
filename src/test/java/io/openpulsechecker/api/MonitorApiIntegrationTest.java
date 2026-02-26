@@ -1,5 +1,11 @@
 package io.openpulsechecker.api;
 
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -15,10 +21,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
-
 @SpringBootTest
 @AutoConfigureMockMvc
 class MonitorApiIntegrationTest {
@@ -30,7 +32,7 @@ class MonitorApiIntegrationTest {
     private HttpCheckClient httpCheckClient;
 
     @Test
-    void createAndRunCheckFlow() throws Exception {
+    void createAndRunCheckFlowAsAdmin() throws Exception {
         given(httpCheckClient.execute(anyString(), anyInt()))
                 .willReturn(new HttpCheckOutcome(true, 200, 50L, null));
 
@@ -46,6 +48,7 @@ class MonitorApiIntegrationTest {
                 """;
 
         MvcResult created = mockMvc.perform(post("/api/v1/monitors")
+                        .with(httpBasic("admin", "admin-change-me"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createPayload))
                 .andExpect(status().isCreated())
@@ -56,9 +59,48 @@ class MonitorApiIntegrationTest {
         String response = created.getResponse().getContentAsString();
         String id = response.replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
 
-        mockMvc.perform(post("/api/v1/monitors/" + id + "/run-check"))
+        mockMvc.perform(post("/api/v1/monitors/" + id + "/run-check")
+                        .with(httpBasic("admin", "admin-change-me")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.monitorId").value(id))
                 .andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test
+    void writeEndpointsRequireAdminRole() throws Exception {
+        String createPayload = """
+                {
+                  "name": "Docs",
+                  "type": "HTTP",
+                  "targetUrl": "https://example.com",
+                  "intervalSec": 60,
+                  "enabled": true,
+                  "timeoutMs": 1200
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/monitors")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createPayload))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/v1/monitors")
+                        .with(httpBasic("viewer", "viewer-change-me"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createPayload))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void readEndpointsAllowViewerRole() throws Exception {
+        mockMvc.perform(get("/api/v1/monitors")
+                        .with(httpBasic("viewer", "viewer-change-me")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/monitors/00000000-0000-0000-0000-000000000000/enabled")
+                        .with(httpBasic("viewer", "viewer-change-me"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\":false}"))
+                .andExpect(status().isForbidden());
     }
 }
