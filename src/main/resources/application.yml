@@ -1,6 +1,8 @@
 spring:
   application:
     name: open-pulse-checker
+  profiles:
+    default: dev
   datasource:
     url: jdbc:h2:mem:openpulse;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     username: sa
@@ -24,10 +26,18 @@ management:
     health:
       probes:
         enabled: true
+      show-details: never
   endpoints:
     web:
       exposure:
         include: health,info,metrics
+  info:
+    env:
+      enabled: false
+
+info:
+  app:
+    name: ${spring.application.name}
 
 openpulse:
   scheduler:

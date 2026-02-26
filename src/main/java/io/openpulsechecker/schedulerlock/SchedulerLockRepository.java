@@ -29,6 +29,7 @@ public interface SchedulerLockRepository extends JpaRepository<SchedulerLockEnti
                l.updatedAt = :now
          where l.lockName = :lockName
            and l.ownerId = :ownerId
+           and l.leaseUntil >= :now
         """)
     int renew(@Param("lockName") String lockName,
               @Param("ownerId") String ownerId,

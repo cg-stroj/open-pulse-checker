@@ -1,5 +1,12 @@
 # Architecture
 
+## Phase 1.4 additions
+- `schedulerlock`: explicit acquire outcomes for lock contention/stale recovery visibility
+- `service`: idempotent scheduler dispatch revalidation before check execution
+- `actuator`: `/actuator/info` build metadata for release visibility
+- `config`: `application-prod.yml` profile for PostgreSQL + safe Flyway defaults
+- `operations`: release template/changelog/runbook documentation for deploy safety
+
 ## Phase 1.2 modules
 - `api`: monitor + health endpoints
 - `service`: monitor lifecycle, check execution, scheduler dispatch

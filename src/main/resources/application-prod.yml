@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: ${OPENPULSE_DB_URL:jdbc:postgresql://postgres:5432/openpulse}
+    username: ${OPENPULSE_DB_USERNAME:openpulse}
+    password: ${OPENPULSE_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    validate-on-migrate: true
+    clean-disabled: true
+    connect-retries: 5
+
+openpulse:
+  security:
+    bootstrap-admin:
+      enabled: ${OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_ENABLED:false}

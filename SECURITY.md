@@ -1,5 +1,12 @@
 # Security Policy
 
+## Phase 1.4 controls
+- Distributed scheduler lock hardening: owner-scoped renew/release and explicit stale lease recovery path
+- Lock contention and stale-steal telemetry for operational anomaly detection
+- Production profile isolation on PostgreSQL (no in-memory DB in prod profile)
+- Flyway production safety flags (`validate-on-migrate=true`, `clean-disabled=true`)
+- Build metadata exposure scoped to safe actuator info fields
+
 ## Phase 1.2 controls
 - DB-backed identity (`app_users`, `user_roles`) with bcrypt password hashing
 - Role-based authorization (`ADMIN`/`VIEWER`) enforced at endpoint level

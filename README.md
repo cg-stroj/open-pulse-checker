@@ -2,6 +2,15 @@
 
 Open Pulse Checker is a security-first, self-host-first OSS monitoring platform.
 
+## Phase 1.4 delivered (production-readiness slice)
+- Hardened distributed scheduler locking with explicit acquire outcomes (`ACQUIRED`/`STOLEN`/`CONTENDED`) and stale-lock recovery visibility
+- Scheduler lock telemetry counters for acquire success/fail/steal and execution skips on lock contention
+- Idempotent scheduler dispatch re-checks due state before execution to reduce race-driven double runs
+- Production profile (`application-prod.yml`) with PostgreSQL datasource and secure env-var based config
+- Production compose stack (`docker-compose.prod.yml`) wiring app + Postgres
+- Safe operational visibility via `/actuator/info` build metadata exposure
+- Release hardening assets: `.github/release-template.md`, `CHANGELOG.md`, and `OPERATIONS_RUNBOOK.md`
+
 ## Phase 1.2 delivered
 - Distributed scheduler lock/lease (`scheduler_locks`) with acquire/renew/release + expiry steal semantics
 - Webhook reliability hardening: bounded retry/backoff + deterministic idempotency key + DB duplicate suppression (`dispatched_alerts`)
@@ -24,6 +33,19 @@ mvn test
 mvn spring-boot:run
 ```
 
+### Production profile (PostgreSQL)
+```bash
+export SPRING_PROFILES_ACTIVE=prod
+export OPENPULSE_DB_URL='jdbc:postgresql://postgres:5432/openpulse'
+export OPENPULSE_DB_USERNAME='openpulse'
+export OPENPULSE_DB_PASSWORD='strong-secret-from-vault'
+mvn spring-boot:run
+```
+- Never commit DB credentials.
+- Inject secrets via environment variables or secret manager.
+- Flyway runs on startup in prod with validation enabled and clean disabled.
+- Containerized prod startup: `docker compose -f docker-compose.prod.yml up -d`.
+
 ## Bootstrap admin (required for fresh DB)
 Enable one-time admin bootstrap via env/config:
 ```bash
@@ -42,8 +64,16 @@ Passwords are stored bcrypt-hashed in `app_users.password_hash`.
 ## Scheduler lock semantics
 - Per-monitor execution lock key: `monitor-check:{monitorId}`
 - Each worker acquires a DB lease before dispatch
-- Lease can be renewed by owner; released on completion
+- Lease can be renewed by owner only while lease is still valid
+- Release is owner-scoped to prevent cross-instance unlock
 - Expired leases can be stolen by another instance (crash recovery)
+- Scheduler rechecks monitor due/enabled state after lock renew before execution
+
+Telemetry counters (Micrometer):
+- `openpulse.scheduler.lock.acquire.success`
+- `openpulse.scheduler.lock.acquire.fail`
+- `openpulse.scheduler.lock.acquire.steal`
+- `openpulse.scheduler.execution.skip.lock`
 
 ## Webhook retry/idempotency
 ```yaml

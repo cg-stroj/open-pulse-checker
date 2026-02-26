@@ -1,8 +1,11 @@
 package io.openpulsechecker.service;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.openpulsechecker.persistence.CheckResultRepository;
 import io.openpulsechecker.persistence.MonitorEntity;
 import io.openpulsechecker.persistence.MonitorRepository;
+import io.openpulsechecker.schedulerlock.LockAcquireOutcome;
 import io.openpulsechecker.schedulerlock.SchedulerLockService;
 import java.time.Clock;
 import java.time.Duration;
@@ -30,6 +33,10 @@ public class MonitorCheckScheduler {
     private final Clock clock;
     private final String ownerId = UUID.randomUUID().toString();
     private final Duration leaseDuration = Duration.ofSeconds(30);
+    private final Counter lockAcquireSuccessCounter;
+    private final Counter lockAcquireFailCounter;
+    private final Counter lockAcquireStealCounter;
+    private final Counter lockSkipCounter;
 
     public MonitorCheckScheduler(
             MonitorRepository monitorRepository,
@@ -37,7 +44,8 @@ public class MonitorCheckScheduler {
             CheckExecutionService checkExecutionService,
             ExecutorService monitorCheckExecutor,
             SchedulerLockService schedulerLockService,
-            Clock clock
+            Clock clock,
+            MeterRegistry meterRegistry
     ) {
         this.monitorRepository = monitorRepository;
         this.checkResultRepository = checkResultRepository;
@@ -45,6 +53,10 @@ public class MonitorCheckScheduler {
         this.monitorCheckExecutor = monitorCheckExecutor;
         this.schedulerLockService = schedulerLockService;
         this.clock = clock;
+        this.lockAcquireSuccessCounter = meterRegistry.counter("openpulse.scheduler.lock.acquire.success");
+        this.lockAcquireFailCounter = meterRegistry.counter("openpulse.scheduler.lock.acquire.fail");
+        this.lockAcquireStealCounter = meterRegistry.counter("openpulse.scheduler.lock.acquire.steal");
+        this.lockSkipCounter = meterRegistry.counter("openpulse.scheduler.execution.skip.lock");
     }
 
     @Scheduled(fixedDelayString = "${openpulse.scheduler.poll-interval-ms}")
@@ -73,14 +85,29 @@ public class MonitorCheckScheduler {
         }
 
         String lockName = "monitor-check:" + monitorId;
-        if (!schedulerLockService.acquire(lockName, ownerId, leaseDuration)) {
+        LockAcquireOutcome outcome = schedulerLockService.acquire(lockName, ownerId, leaseDuration);
+        if (outcome == LockAcquireOutcome.CONTENDED) {
+            lockAcquireFailCounter.increment();
+            lockSkipCounter.increment();
             inFlightMonitorIds.remove(monitorId);
             return;
         }
 
+        lockAcquireSuccessCounter.increment();
+        if (outcome == LockAcquireOutcome.STOLEN) {
+            lockAcquireStealCounter.increment();
+            log.warn("Recovered stale scheduler lock {} for monitor {}", lockName, monitorId);
+        }
+
         monitorCheckExecutor.submit(() -> {
             try {
-                schedulerLockService.renew(lockName, ownerId, leaseDuration);
+                if (!schedulerLockService.renew(lockName, ownerId, leaseDuration)) {
+                    lockSkipCounter.increment();
+                    return;
+                }
+                if (!isStillDue(monitorId, clock.instant())) {
+                    return;
+                }
                 checkExecutionService.runCheck(monitorId);
             } catch (Exception ex) {
                 log.error("Scheduled check failed for monitor {}", monitorId, ex);
@@ -89,5 +116,12 @@ public class MonitorCheckScheduler {
                 inFlightMonitorIds.remove(monitorId);
             }
         });
+    }
+
+    private boolean isStillDue(UUID monitorId, Instant now) {
+        return monitorRepository.findById(monitorId)
+                .filter(MonitorEntity::isEnabled)
+                .filter(monitor -> isDue(monitor, now))
+                .isPresent();
     }
 }

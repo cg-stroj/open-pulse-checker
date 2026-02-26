@@ -3,6 +3,7 @@ package io.openpulsechecker.schedulerlock;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,12 +20,13 @@ public class SchedulerLockService {
     }
 
     @Transactional
-    public boolean acquire(String lockName, String ownerId, Duration leaseDuration) {
+    public LockAcquireOutcome acquire(String lockName, String ownerId, Duration leaseDuration) {
         Instant now = clock.instant();
         Instant leaseUntil = now.plus(leaseDuration);
+        Optional<SchedulerLockEntity> existing = repository.findById(lockName);
 
         if (repository.tryAcquireOrSteal(lockName, ownerId, leaseUntil, now) > 0) {
-            return true;
+            return wasStolen(existing, ownerId, now) ? LockAcquireOutcome.STOLEN : LockAcquireOutcome.ACQUIRED;
         }
 
         SchedulerLockEntity entity = new SchedulerLockEntity();
@@ -34,9 +36,13 @@ public class SchedulerLockService {
         entity.setUpdatedAt(now);
         try {
             repository.save(entity);
-            return true;
+            return LockAcquireOutcome.ACQUIRED;
         } catch (DataIntegrityViolationException ignored) {
-            return repository.tryAcquireOrSteal(lockName, ownerId, leaseUntil, now) > 0;
+            Optional<SchedulerLockEntity> contender = repository.findById(lockName);
+            if (repository.tryAcquireOrSteal(lockName, ownerId, leaseUntil, now) > 0) {
+                return wasStolen(contender, ownerId, now) ? LockAcquireOutcome.STOLEN : LockAcquireOutcome.ACQUIRED;
+            }
+            return LockAcquireOutcome.CONTENDED;
         }
     }
 
@@ -48,7 +54,13 @@ public class SchedulerLockService {
     }
 
     @Transactional
-    public void release(String lockName, String ownerId) {
-        repository.deleteByLockNameAndOwnerId(lockName, ownerId);
+    public boolean release(String lockName, String ownerId) {
+        return repository.deleteByLockNameAndOwnerId(lockName, ownerId) > 0;
+    }
+
+    private boolean wasStolen(Optional<SchedulerLockEntity> existing, String ownerId, Instant now) {
+        return existing.isPresent()
+                && !existing.get().getOwnerId().equals(ownerId)
+                && existing.get().getLeaseUntil().isBefore(now);
     }
 }

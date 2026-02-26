@@ -1,5 +1,6 @@
 package io.openpulsechecker.schedulerlock;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -26,17 +27,31 @@ class SchedulerLockServiceTest {
 
     @Test
     void lockAcquireRenewReleaseAndExpirySteal() {
-        assertTrue(schedulerLockService.acquire("m1", "owner-a", Duration.ofSeconds(10)));
+        assertEquals(LockAcquireOutcome.ACQUIRED,
+                schedulerLockService.acquire("m1", "owner-a", Duration.ofSeconds(10)));
         mutableClock.advanceSeconds(1);
         assertFalse(schedulerLockService.renew("m1", "owner-b", Duration.ofSeconds(10)));
 
         assertTrue(schedulerLockService.renew("m1", "owner-a", Duration.ofSeconds(10)));
 
         mutableClock.advanceSeconds(11);
-        assertTrue(schedulerLockService.acquire("m1", "owner-b", Duration.ofSeconds(5)));
+        assertEquals(LockAcquireOutcome.STOLEN,
+                schedulerLockService.acquire("m1", "owner-b", Duration.ofSeconds(5)));
 
-        schedulerLockService.release("m1", "owner-b");
-        assertTrue(schedulerLockService.acquire("m1", "owner-a", Duration.ofSeconds(5)));
+        assertTrue(schedulerLockService.release("m1", "owner-b"));
+        assertEquals(LockAcquireOutcome.ACQUIRED,
+                schedulerLockService.acquire("m1", "owner-a", Duration.ofSeconds(5)));
+    }
+
+    @Test
+    void expiredOwnerCannotRenewAfterLeaseTimeout() {
+        assertEquals(LockAcquireOutcome.ACQUIRED,
+                schedulerLockService.acquire("m2", "owner-a", Duration.ofSeconds(2)));
+        mutableClock.advanceSeconds(3);
+
+        assertFalse(schedulerLockService.renew("m2", "owner-a", Duration.ofSeconds(2)));
+        assertEquals(LockAcquireOutcome.STOLEN,
+                schedulerLockService.acquire("m2", "owner-b", Duration.ofSeconds(2)));
     }
 
     @TestConfiguration
