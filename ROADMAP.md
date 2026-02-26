@@ -1,9 +1,18 @@
 # Roadmap
 
-## Phase 1
-- Core domain model for monitors, checks, and incidents
-- Persistent storage integration
-- Authentication/authorization baseline
+## Phase 1 (In Progress)
+Delivered in this kickoff slice:
+- ✅ Core entities + persistence: Monitor, CheckResult, Incident
+- ✅ Flyway baseline migration and schema indexes
+- ✅ API v1 monitor endpoints (create/list/get/toggle enabled/manual run-check)
+- ✅ HTTP check execution MVP with timeout handling
+- ✅ Incident lifecycle transitions (OPEN on DOWN, RESOLVED on recovery)
+- ✅ Unit + integration test baseline
+
+Next Phase 1 increments:
+- scheduler orchestration for periodic checks
+- basic authn/authz baseline
+- paging/filtering and audit improvements
 
 ## Phase 2
 - Agent-based distributed checks
