@@ -1,5 +1,11 @@
 # Architecture
 
+## Phase 2.0 additions
+- `status pages`: `status_pages` + `status_page_monitors` persistence model with public/private visibility
+- `api`: public unauthenticated status page read endpoint and ADMIN-only management endpoints
+- `service`: status aggregation for monitor summaries + bounded incident timeline + derived overall page health state (`OPERATIONAL`/`DEGRADED`/`OUTAGE`)
+- `security`: public access limited to `GET /api/v1/public/status-pages/{slug}` when page is marked public
+
 ## Phase 1.4 additions
 - `schedulerlock`: explicit acquire outcomes for lock contention/stale recovery visibility
 - `service`: idempotent scheduler dispatch revalidation before check execution

@@ -1,5 +1,11 @@
 # Security Policy
 
+## Phase 2.0 controls
+- Public status page endpoint only exposes data for pages explicitly flagged `is_public=true`
+- Non-public status pages intentionally return `404` on public slug access to avoid page enumeration/data leakage
+- Status page management endpoints remain `ADMIN`-only
+- Incident timeline responses are bounded (latest 20) to reduce abuse/query amplification risk
+
 ## Phase 1.4 controls
 - Distributed scheduler lock hardening: owner-scoped renew/release and explicit stale lease recovery path
 - Lock contention and stale-steal telemetry for operational anomaly detection

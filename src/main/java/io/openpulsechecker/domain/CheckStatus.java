@@ -2,5 +2,6 @@ package io.openpulsechecker.domain;
 
 public enum CheckStatus {
     UP,
-    DOWN
+    DOWN,
+    UNKNOWN
 }

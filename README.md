@@ -2,6 +2,37 @@
 
 Open Pulse Checker is a security-first, self-host-first OSS monitoring platform.
 
+## Phase 2.0 delivered (status pages + public timeline API)
+- Public status page endpoint: `GET /api/v1/public/status-pages/{slug}`
+- Admin status page management endpoints:
+  - `POST /api/v1/status-pages`
+  - `GET /api/v1/status-pages`
+  - `POST /api/v1/status-pages/{id}/monitors`
+  - `DELETE /api/v1/status-pages/{id}/monitors/{monitorId}`
+- New schema: `status_pages`, `status_page_monitors`
+- Public response composes current monitor summary + bounded incident timeline (latest 20)
+- Public access is only for `is_public=true`; non-public slugs return `404` to avoid information leakage
+
+### Status page API examples
+Create status page (ADMIN):
+```bash
+curl -u admin:change-me -X POST http://localhost:8080/api/v1/status-pages \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Main Status","slug":"main-status","isPublic":true}'
+```
+
+Attach/reorder monitors (ADMIN):
+```bash
+curl -u admin:change-me -X POST http://localhost:8080/api/v1/status-pages/{pageId}/monitors \
+  -H 'Content-Type: application/json' \
+  -d '{"monitorIds":["<monitor-uuid-1>","<monitor-uuid-2>"]}'
+```
+
+Fetch public page (no auth when page is public):
+```bash
+curl http://localhost:8080/api/v1/public/status-pages/main-status
+```
+
 ## Phase 1.4 delivered (production-readiness slice)
 - Hardened distributed scheduler locking with explicit acquire outcomes (`ACQUIRED`/`STOLEN`/`CONTENDED`) and stale-lock recovery visibility
 - Scheduler lock telemetry counters for acquire success/fail/steal and execution skips on lock contention

@@ -28,6 +28,12 @@
 - ✅ Build/version metadata exposure via actuator info
 - ✅ Release hardening templates and operational runbook (backup/restore/rollback)
 
+## Phase 2.0 delivered
+- [x] Public status pages by slug with monitor health summary and incident timeline
+- [x] ADMIN management API for page create/list and monitor attach/reorder/remove
+- [x] Status page schema + FK/indexed monitor mapping table
+- [x] Endpoint/security tests for public/private behavior and admin authz
+
 ## Next
 - notification policy customization
 - paging/filtering and richer audit querying
