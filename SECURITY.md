@@ -26,3 +26,11 @@
 
 ## Reporting
 Please use GitHub private security advisories for vulnerabilities.
+
+## API key and monitoring security
+
+- API keys are service-account credentials carried in `X-API-Key` using `keyId.secret` format.
+- Only hashed secrets are stored in `service_api_keys.secret_hash`.
+- Use bootstrap only for local initialization (`openpulse.security.bootstrap-api-key.*`) and rotate immediately.
+- Rate limiting is applied to auth and monitor write surfaces; exceeded limits return HTTP 429.
+- Metrics endpoint should be treated as sensitive and remains ADMIN-protected.

@@ -24,3 +24,10 @@
 - `app_users`
 - `user_roles`
 - `audit_events`
+
+## Phase 1.3 additions
+
+- **Rate Limiting:** `RateLimitFilter` + in-memory token bucket keyed by principal/API key/IP.
+- **Service Accounts:** `service_api_keys` table + `ApiKeyAuthenticationFilter` integrated into Spring Security roles.
+- **Notifier DLQ:** exhausted webhook retries are persisted to `alert_dead_letters` and replayed through admin API.
+- **Observability:** Spring Boot Actuator health/readiness/metrics plus counters for checks, alerts, auth failures, and rate-limit hits.

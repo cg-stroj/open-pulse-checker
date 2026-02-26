@@ -20,10 +20,14 @@ server:
     include-stacktrace: never
 
 management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
 
 openpulse:
   scheduler:
@@ -41,3 +45,13 @@ openpulse:
       enabled: false
       username: admin
       password: ""
+    bootstrap-api-key:
+      enabled: false
+      key-id: ""
+      role: ADMIN
+      secret: ""
+  rate-limit:
+    sensitive:
+      capacity: 10
+      refill-tokens: 10
+      refill-period-seconds: 60

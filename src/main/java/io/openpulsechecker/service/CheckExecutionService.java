@@ -1,5 +1,6 @@
 package io.openpulsechecker.service;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.openpulsechecker.api.CheckResultResponse;
 import io.openpulsechecker.domain.CheckStatus;
 import io.openpulsechecker.audit.AuditService;
@@ -19,19 +20,22 @@ public class CheckExecutionService {
     private final CheckResultRepository checkResultRepository;
     private final IncidentService incidentService;
     private final AuditService auditService;
+    private final MeterRegistry meterRegistry;
 
     public CheckExecutionService(
             MonitorService monitorService,
             HttpCheckClient httpCheckClient,
             CheckResultRepository checkResultRepository,
             IncidentService incidentService,
-            AuditService auditService
+            AuditService auditService,
+            MeterRegistry meterRegistry
     ) {
         this.monitorService = monitorService;
         this.httpCheckClient = httpCheckClient;
         this.checkResultRepository = checkResultRepository;
         this.incidentService = incidentService;
         this.auditService = auditService;
+        this.meterRegistry = meterRegistry;
     }
 
     @Transactional
@@ -57,6 +61,7 @@ public class CheckExecutionService {
         );
 
         auditService.log("MONITOR_RUN_CHECK", "monitor:" + monitorId, "SUCCESS", "status=" + saved.getStatus());
+        meterRegistry.counter("openpulse.checks.executed", "status", saved.getStatus().name()).increment();
 
         return new CheckResultResponse(
                 saved.getId(),

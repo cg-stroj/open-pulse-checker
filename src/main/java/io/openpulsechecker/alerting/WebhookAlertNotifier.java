@@ -1,5 +1,6 @@
 package io.openpulsechecker.alerting;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.openpulsechecker.config.AlertingProperties;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -17,17 +18,23 @@ public class WebhookAlertNotifier implements AlertNotifier {
     private final RestClient restClient;
     private final AlertingProperties alertingProperties;
     private final DispatchedAlertRepository dispatchedAlertRepository;
+    private final AlertDeadLetterRepository deadLetterRepository;
+    private final MeterRegistry meterRegistry;
     private final Clock clock;
 
     public WebhookAlertNotifier(
             RestClient.Builder restClientBuilder,
             AlertingProperties alertingProperties,
             DispatchedAlertRepository dispatchedAlertRepository,
+            AlertDeadLetterRepository deadLetterRepository,
+            MeterRegistry meterRegistry,
             Clock clock
     ) {
         this.restClient = restClientBuilder.build();
         this.alertingProperties = alertingProperties;
         this.dispatchedAlertRepository = dispatchedAlertRepository;
+        this.deadLetterRepository = deadLetterRepository;
+        this.meterRegistry = meterRegistry;
         this.clock = clock;
     }
 
@@ -57,10 +64,22 @@ public class WebhookAlertNotifier implements AlertNotifier {
                 saved.setIncidentId(event.incidentId());
                 saved.setCreatedAt(Instant.now(clock));
                 dispatchedAlertRepository.save(saved);
+                meterRegistry.counter("openpulse.alerts.sent").increment();
                 return;
             } catch (Exception ex) {
                 if (attempt >= maxAttempts) {
-                    throw ex;
+                    meterRegistry.counter("openpulse.alerts.failed").increment();
+                    AlertDeadLetterEntity dlq = new AlertDeadLetterEntity();
+                    dlq.setEventType(event.type().name());
+                    dlq.setMonitorId(event.monitorId());
+                    dlq.setIncidentId(event.incidentId());
+                    dlq.setPayload(event.reason());
+                    dlq.setFailureReason(ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+                    dlq.setAttempts(attempt);
+                    dlq.setCreatedAt(Instant.now(clock));
+                    deadLetterRepository.save(dlq);
+                    meterRegistry.counter("openpulse.alerts.dlq").increment();
+                    return;
                 }
                 sleep(backoffMs);
                 backoffMs = Math.min(backoffMs * 2, 5_000L);

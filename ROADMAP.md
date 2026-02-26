@@ -19,3 +19,10 @@
 - notification policy customization
 - paging/filtering and richer audit querying
 - multi-node operational tooling and metrics
+
+## Phase 1.3 delivered
+
+- [x] Sensitive endpoint rate limiting with retry hint headers
+- [x] Service account API keys with hashed-secret storage and role mapping
+- [x] Webhook dead-letter queue + replay endpoint
+- [x] Actuator health/readiness/metrics baseline and security posture docs

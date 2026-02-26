@@ -59,3 +59,11 @@ openpulse:
 - `X-Idempotency-Key` header is deterministic per alert event
 - Successfully delivered keys are stored in `dispatched_alerts` to suppress duplicates
 - Notifier failures are isolated and never crash scheduler/check execution paths
+
+## Phase 1.3 security hardening
+
+- Sensitive endpoints are rate limited and return `429` with `Retry-After`.
+- Service/API key auth is supported via `X-API-Key: <keyId>.<secret>`.
+- API key secrets are never stored raw; SHA-256 hashes are persisted.
+- Webhook delivery failures after retry exhaustion are persisted in DLQ and replayable via `POST /api/v1/admin/dlq/{id}/replay`.
+- Actuator endpoints enabled: `/actuator/health`, `/actuator/health/readiness`, `/actuator/metrics` (metrics restricted to ADMIN).
