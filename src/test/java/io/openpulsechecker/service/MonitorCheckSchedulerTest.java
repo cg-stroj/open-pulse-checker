@@ -2,6 +2,8 @@ package io.openpulsechecker.service;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -10,6 +12,7 @@ import io.openpulsechecker.persistence.CheckResultEntity;
 import io.openpulsechecker.persistence.CheckResultRepository;
 import io.openpulsechecker.persistence.MonitorEntity;
 import io.openpulsechecker.persistence.MonitorRepository;
+import io.openpulsechecker.schedulerlock.SchedulerLockService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -27,12 +30,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class MonitorCheckSchedulerTest {
 
-    @Mock
-    private MonitorRepository monitorRepository;
-    @Mock
-    private CheckResultRepository checkResultRepository;
-    @Mock
-    private CheckExecutionService checkExecutionService;
+    @Mock private MonitorRepository monitorRepository;
+    @Mock private CheckResultRepository checkResultRepository;
+    @Mock private CheckExecutionService checkExecutionService;
+    @Mock private SchedulerLockService schedulerLockService;
 
     @Test
     void dueCheckUsesIntervalAgainstLastExecutionTime() {
@@ -46,12 +47,9 @@ class MonitorCheckSchedulerTest {
         when(checkResultRepository.findTopByMonitorIdOrderByCheckedAtDesc(monitorId)).thenReturn(Optional.of(last));
 
         var scheduler = new MonitorCheckScheduler(
-                monitorRepository,
-                checkResultRepository,
-                checkExecutionService,
-                new QueuedExecutor(),
-                Clock.fixed(Instant.parse("2026-02-26T22:01:00Z"), ZoneOffset.UTC)
-        );
+                monitorRepository, checkResultRepository, checkExecutionService,
+                new QueuedExecutor(), schedulerLockService,
+                Clock.fixed(Instant.parse("2026-02-26T22:01:00Z"), ZoneOffset.UTC));
 
         assertFalse(scheduler.isDue(monitor, Instant.parse("2026-02-26T22:01:00Z")));
         assertTrue(scheduler.isDue(monitor, Instant.parse("2026-02-26T22:01:30Z")));
@@ -65,15 +63,13 @@ class MonitorCheckSchedulerTest {
         monitor.setIntervalSec(10);
         when(monitorRepository.findByEnabledTrue()).thenReturn(List.of(monitor));
         when(checkResultRepository.findTopByMonitorIdOrderByCheckedAtDesc(monitorId)).thenReturn(Optional.empty());
+        when(schedulerLockService.acquire(anyString(), anyString(), any())).thenReturn(true);
 
         QueuedExecutor executor = new QueuedExecutor();
         var scheduler = new MonitorCheckScheduler(
-                monitorRepository,
-                checkResultRepository,
-                checkExecutionService,
-                executor,
-                Clock.fixed(Instant.parse("2026-02-26T22:01:00Z"), ZoneOffset.UTC)
-        );
+                monitorRepository, checkResultRepository, checkExecutionService,
+                executor, schedulerLockService,
+                Clock.fixed(Instant.parse("2026-02-26T22:01:00Z"), ZoneOffset.UTC));
 
         scheduler.scheduleDueChecks();
         scheduler.scheduleDueChecks();
@@ -88,47 +84,13 @@ class MonitorCheckSchedulerTest {
     static class QueuedExecutor extends AbstractExecutorService {
         private final List<Runnable> tasks = new ArrayList<>();
         private boolean shutdown;
-
-        @Override
-        public void shutdown() {
-            shutdown = true;
-        }
-
-        @Override
-        public List<Runnable> shutdownNow() {
-            shutdown = true;
-            return List.copyOf(tasks);
-        }
-
-        @Override
-        public boolean isShutdown() {
-            return shutdown;
-        }
-
-        @Override
-        public boolean isTerminated() {
-            return shutdown;
-        }
-
-        @Override
-        public boolean awaitTermination(long timeout, TimeUnit unit) {
-            return shutdown;
-        }
-
-        @Override
-        public void execute(Runnable command) {
-            tasks.add(command);
-        }
-
-        int taskCount() {
-            return tasks.size();
-        }
-
-        void runAll() {
-            for (Runnable task : List.copyOf(tasks)) {
-                task.run();
-            }
-            tasks.clear();
-        }
+        public void shutdown() { shutdown = true; }
+        public List<Runnable> shutdownNow() { shutdown = true; return List.copyOf(tasks); }
+        public boolean isShutdown() { return shutdown; }
+        public boolean isTerminated() { return shutdown; }
+        public boolean awaitTermination(long timeout, TimeUnit unit) { return shutdown; }
+        public void execute(Runnable command) { tasks.add(command); }
+        int taskCount() { return tasks.size(); }
+        void runAll() { for (Runnable task : List.copyOf(tasks)) task.run(); tasks.clear(); }
     }
 }

@@ -1,47 +1,26 @@
-# Architecture (Phase 1 kickoff)
+# Architecture
 
-## Current modules
-- **API Layer (`io.openpulsechecker.api`)**
-  - REST endpoints under `/api/v1/monitors`
-  - Health endpoint `/api/v1/health`
-  - Validation + exception mapping
-- **Service Layer (`io.openpulsechecker.service`)**
-  - `MonitorService` for monitor CRUD operations
-  - `CheckExecutionService` for manual and scheduler-driven HTTP check execution
-  - `MonitorCheckScheduler` for periodic due-check dispatching
-  - `IncidentService` for incident state transitions
-  - `DefaultHttpCheckClient` for outbound HTTP probing
-- **Alerting Layer (`io.openpulsechecker.alerting`)**
-  - `AlertNotifier` abstraction
-  - `AlertDispatchService` fan-out with notifier failure isolation
-  - `WebhookAlertNotifier` config-driven outbound webhook implementation
-- **Security Layer (`io.openpulsechecker.config`)**
-  - `SecurityConfig` role-based API protection (ADMIN/VIEWER)
-- **Persistence Layer (`io.openpulsechecker.persistence`)**
-  - JPA entities: Monitor, CheckResult, Incident
-  - Spring Data repositories
-  - Flyway migration `V1__init_phase1.sql`
+## Phase 1.2 modules
+- `api`: monitor + health endpoints
+- `service`: monitor lifecycle, check execution, scheduler dispatch
+- `schedulerlock`: DB-backed distributed lease lock (`scheduler_locks`)
+- `alerting`: alert dispatch + webhook notifier with retry/idempotency dedupe
+- `auth`: DB user/role persistence + DB `UserDetailsService` + bootstrap admin initializer
+- `audit`: persistent auth and write-action audit trail
+- `persistence`: monitor/check/incident JPA model + Flyway migrations
 
-## Data flow: check execution (manual + scheduled)
-1. Trigger source:
-   - Manual: `POST /api/v1/monitors/{id}/run-check` (ADMIN only)
-   - Scheduled: `MonitorCheckScheduler` polls enabled monitors and selects due checks
-2. `CheckExecutionService` loads monitor config and performs HTTP check with timeout
-3. Check result is persisted in `check_results`
-4. `IncidentService` applies transition:
-   - DOWN + no open incident → create OPEN incident + dispatch `INCIDENT_OPENED`
-   - UP + open incident exists → mark RESOLVED + dispatch `INCIDENT_RESOLVED`
-5. Alert dispatch fan-out executes notifiers; notifier failures are logged and isolated
-6. Manual path returns result payload to caller; scheduled path continues asynchronously
+## Key runtime flow
+1. Scheduler finds due monitors
+2. For each monitor, attempts DB lease lock (`monitor-check:{id}`)
+3. If acquired, check executes and result persists
+4. Incident transition emits alert event
+5. Webhook notifier sends with deterministic idempotency key + bounded retries
+6. Successful deliveries are deduped via `dispatched_alerts`
+7. Writes/auth events emit persistent audit records
 
-## Security-first properties currently enforced
-- Input constraints and server-side validation on monitor payloads
-- URL scheme restrictions (HTTP/HTTPS only)
-- Sanitized check error strings persisted with length bounds
-- Flyway-managed schema + explicit constraints/indexes
-- Non-secret local defaults for dev/test runtime
-
-## Planned evolution
-- scheduler module for periodic checks
-- authn/authz module and policy enforcement
-- split toward API/Agent/UI components as scope grows
+## Delivered Phase 1.2 schema additions
+- `scheduler_locks`
+- `dispatched_alerts`
+- `app_users`
+- `user_roles`
+- `audit_events`

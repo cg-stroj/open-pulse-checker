@@ -3,7 +3,9 @@ package io.openpulsechecker.service;
 import io.openpulsechecker.persistence.CheckResultRepository;
 import io.openpulsechecker.persistence.MonitorEntity;
 import io.openpulsechecker.persistence.MonitorRepository;
+import io.openpulsechecker.schedulerlock.SchedulerLockService;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
@@ -23,20 +25,25 @@ public class MonitorCheckScheduler {
     private final CheckResultRepository checkResultRepository;
     private final CheckExecutionService checkExecutionService;
     private final ExecutorService monitorCheckExecutor;
+    private final SchedulerLockService schedulerLockService;
     private final Set<UUID> inFlightMonitorIds = ConcurrentHashMap.newKeySet();
     private final Clock clock;
+    private final String ownerId = UUID.randomUUID().toString();
+    private final Duration leaseDuration = Duration.ofSeconds(30);
 
     public MonitorCheckScheduler(
             MonitorRepository monitorRepository,
             CheckResultRepository checkResultRepository,
             CheckExecutionService checkExecutionService,
             ExecutorService monitorCheckExecutor,
+            SchedulerLockService schedulerLockService,
             Clock clock
     ) {
         this.monitorRepository = monitorRepository;
         this.checkResultRepository = checkResultRepository;
         this.checkExecutionService = checkExecutionService;
         this.monitorCheckExecutor = monitorCheckExecutor;
+        this.schedulerLockService = schedulerLockService;
         this.clock = clock;
     }
 
@@ -65,12 +72,20 @@ public class MonitorCheckScheduler {
             return;
         }
 
+        String lockName = "monitor-check:" + monitorId;
+        if (!schedulerLockService.acquire(lockName, ownerId, leaseDuration)) {
+            inFlightMonitorIds.remove(monitorId);
+            return;
+        }
+
         monitorCheckExecutor.submit(() -> {
             try {
+                schedulerLockService.renew(lockName, ownerId, leaseDuration);
                 checkExecutionService.runCheck(monitorId);
             } catch (Exception ex) {
                 log.error("Scheduled check failed for monitor {}", monitorId, ex);
             } finally {
+                schedulerLockService.release(lockName, ownerId);
                 inFlightMonitorIds.remove(monitorId);
             }
         });

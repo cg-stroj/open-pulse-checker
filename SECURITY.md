@@ -1,40 +1,28 @@
 # Security Policy
 
-Open Pulse Checker follows a security-first development model and aligns with **OWASP ASVS** principles as a baseline.
+## Phase 1.2 controls
+- DB-backed identity (`app_users`, `user_roles`) with bcrypt password hashing
+- Role-based authorization (`ADMIN`/`VIEWER`) enforced at endpoint level
+- Guarded bootstrap admin initializer for initial access provisioning
+- Persistent audit logging (`audit_events`) for auth success/failure and write actions
+- Distributed scheduler safety via DB lock leases (`scheduler_locks`) with expiry/steal
+- Alert delivery resilience with bounded retry/backoff and idempotency dedupe (`dispatched_alerts`)
 
-## Baseline controls (Phase 1.1)
-- Secure defaults and least privilege
-- Static analysis via CodeQL workflow
-- Dependency hygiene via Maven dependency management and CI build gates
-- Containerized runtime with non-root execution
-- Spring Security HTTP Basic auth baseline with role separation (`ADMIN`, `VIEWER`)
-- Write API endpoints restricted to `ADMIN`
-- Read monitor endpoints restricted to authenticated users (`ADMIN`/`VIEWER`)
-- Bounded scheduler worker pool to avoid unbounded thread growth
+## Credential handling
+- Do not commit credentials or bootstrap passwords
+- Use environment variables/secrets manager for bootstrap admin values
+- Disable bootstrap admin after initial provisioning
+- Rotate credentials after suspected disclosure
 
-## Secrets policy
-- No secrets in source control
-- Local secrets must be supplied via secure environment management outside git
-- `.env*`, keys, and certificate artifacts are ignored via `.gitignore`
-- If a secret is committed, rotate immediately and purge history where possible
+## Lock safety assumptions
+- Lease duration bounds duplicate execution windows across instances
+- Expired lease steal supports worker crash recovery
+- Clock skew between nodes should be kept minimal (NTP recommended)
 
-## Dependency policy
-- Keep dependencies minimal and actively maintained
-- Review transitive dependencies regularly
-- Add SCA/dependency scanning enhancements in upcoming phases
+## Audit
+- Auth events: login success + failure
+- Write/check actions: monitor create/update-enabled/run-check
+- Audit trail persisted with actor, action, target, result, timestamp
 
-## Auth baseline and hardening notes
-- Local credentials are configurable via `OPENPULSE_SECURITY_*` environment variables
-- Do not use default placeholder credentials outside local development
-- Use hashed passwords via Spring Security format prefix (e.g. `{bcrypt}...`) in non-dev setups
-- Prefer HTTPS/TLS termination in front of the API before exposing externally
-- Rotate credentials regularly and after any suspected disclosure
-
-## Secret/dependency scanning notes
-- CodeQL is enabled in `.github/workflows/codeql.yml`
-- CI build ensures dependency resolution and test execution on every PR/push
-- Future phases will add dedicated dependency vulnerability and secret scanning automation
-
-## Vulnerability reporting
-Please open a private security advisory or contact maintainers through GitHub security channels.
-Avoid public disclosure until a fix or mitigation is available.
+## Reporting
+Please use GitHub private security advisories for vulnerabilities.

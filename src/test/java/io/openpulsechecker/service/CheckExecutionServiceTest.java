@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.openpulsechecker.audit.AuditService;
 import io.openpulsechecker.domain.CheckStatus;
 import io.openpulsechecker.domain.MonitorType;
 import io.openpulsechecker.persistence.CheckResultEntity;
@@ -29,6 +30,8 @@ class CheckExecutionServiceTest {
     private CheckResultRepository checkResultRepository;
     @Mock
     private IncidentService incidentService;
+    @Mock
+    private AuditService auditService;
 
     @InjectMocks
     private CheckExecutionService checkExecutionService;

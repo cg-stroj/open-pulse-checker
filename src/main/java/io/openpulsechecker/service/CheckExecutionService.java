@@ -2,6 +2,7 @@ package io.openpulsechecker.service;
 
 import io.openpulsechecker.api.CheckResultResponse;
 import io.openpulsechecker.domain.CheckStatus;
+import io.openpulsechecker.audit.AuditService;
 import io.openpulsechecker.persistence.CheckResultEntity;
 import io.openpulsechecker.persistence.CheckResultRepository;
 import io.openpulsechecker.persistence.MonitorEntity;
@@ -17,17 +18,20 @@ public class CheckExecutionService {
     private final HttpCheckClient httpCheckClient;
     private final CheckResultRepository checkResultRepository;
     private final IncidentService incidentService;
+    private final AuditService auditService;
 
     public CheckExecutionService(
             MonitorService monitorService,
             HttpCheckClient httpCheckClient,
             CheckResultRepository checkResultRepository,
-            IncidentService incidentService
+            IncidentService incidentService,
+            AuditService auditService
     ) {
         this.monitorService = monitorService;
         this.httpCheckClient = httpCheckClient;
         this.checkResultRepository = checkResultRepository;
         this.incidentService = incidentService;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -51,6 +55,8 @@ public class CheckExecutionService {
                 saved.getCheckedAt(),
                 deriveReason(saved)
         );
+
+        auditService.log("MONITOR_RUN_CHECK", "monitor:" + monitorId, "SUCCESS", "status=" + saved.getStatus());
 
         return new CheckResultResponse(
                 saved.getId(),

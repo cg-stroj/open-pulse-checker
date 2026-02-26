@@ -1,20 +1,18 @@
 package io.openpulsechecker.config;
 
+import io.openpulsechecker.auth.AdminBootstrapProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
-@EnableConfigurationProperties(SecurityProperties.class)
+@EnableConfigurationProperties({SecurityProperties.class, AdminBootstrapProperties.class})
 public class SecurityConfig {
 
     @Bean
@@ -33,28 +31,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public UserDetailsService userDetailsService(SecurityProperties properties) {
-        return new InMemoryUserDetailsManager(
-                User.withUsername(properties.adminUsername())
-                        .password(normalizePassword(properties.adminPassword()))
-                        .roles("ADMIN")
-                        .build(),
-                User.withUsername(properties.viewerUsername())
-                        .password(normalizePassword(properties.viewerPassword()))
-                        .roles("VIEWER")
-                        .build()
-        );
-    }
-
-    @Bean
     public PasswordEncoder passwordEncoder() {
-        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
-    }
-
-    private String normalizePassword(String configured) {
-        if (configured == null || configured.isBlank()) {
-            throw new IllegalStateException("Security credentials must be configured");
-        }
-        return configured.startsWith("{") ? configured : "{noop}" + configured;
+        return new BCryptPasswordEncoder();
     }
 }

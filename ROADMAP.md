@@ -1,29 +1,21 @@
 # Roadmap
 
-## Phase 1 (In Progress)
-Delivered in this kickoff slice:
-- ✅ Core entities + persistence: Monitor, CheckResult, Incident
-- ✅ Flyway baseline migration and schema indexes
-- ✅ API v1 monitor endpoints (create/list/get/toggle enabled/manual run-check)
-- ✅ HTTP check execution MVP with timeout handling
-- ✅ Incident lifecycle transitions (OPEN on DOWN, RESOLVED on recovery)
-- ✅ Unit + integration test baseline
+## Phase 1
+### 1.0/1.1 (done)
+- Core monitor/check/incident model
+- API + scheduler baseline
+- Security baseline and role policies
+- Alerting abstraction baseline
 
-Delivered Phase 1.1 increments:
-- ✅ scheduler orchestration for periodic checks (bounded worker pool, due-time logic, anti-duplicate in-flight guard)
-- ✅ basic authn/authz baseline (Spring Security, ADMIN/VIEWER roles, write endpoint protection)
-- ✅ alerting pipeline baseline (notifier abstraction + webhook notifier)
+### 1.2 (done)
+- ✅ Distributed scheduler lock/lease (DB-backed, expiry steal)
+- ✅ Webhook retry/backoff + idempotency key + duplicate suppression
+- ✅ DB-backed identity (users/roles, bcrypt, DB UserDetailsService)
+- ✅ Bootstrap admin initializer (config/env guarded)
+- ✅ Persistent auth + write-action audit logging
+- ✅ Test coverage for lock semantics, notifier retry/idempotency, DB auth role behavior, audit insertions
 
-Next Phase 1 increments:
-- paging/filtering and audit improvements
-- notification policy controls and retry strategy
-
-## Phase 2
-- Agent-based distributed checks
-- Alert channels and notification policies
-- Initial dashboard UI
-
-## Phase 3
-- Multi-tenant hardening
-- Rule engine and anomaly detection
-- Advanced deployment profiles (Kubernetes, air-gapped guidance)
+## Next
+- notification policy customization
+- paging/filtering and richer audit querying
+- multi-node operational tooling and metrics

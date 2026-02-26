@@ -33,8 +33,11 @@ openpulse:
     webhook:
       enabled: false
       url: ""
+      max-attempts: 3
+      initial-backoff-ms: 100
   security:
-    admin-username: admin
-    admin-password: admin-change-me
-    viewer-username: viewer
-    viewer-password: viewer-change-me
+    auth-mode: db
+    bootstrap-admin:
+      enabled: false
+      username: admin
+      password: ""

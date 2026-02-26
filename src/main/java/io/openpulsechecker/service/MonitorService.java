@@ -2,7 +2,7 @@ package io.openpulsechecker.service;
 
 import io.openpulsechecker.api.CreateMonitorRequest;
 import io.openpulsechecker.api.MonitorResponse;
-import io.openpulsechecker.domain.MonitorType;
+import io.openpulsechecker.audit.AuditService;
 import io.openpulsechecker.persistence.MonitorEntity;
 import io.openpulsechecker.persistence.MonitorRepository;
 import java.net.URI;
@@ -15,9 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class MonitorService {
 
     private final MonitorRepository monitorRepository;
+    private final AuditService auditService;
 
-    public MonitorService(MonitorRepository monitorRepository) {
+    public MonitorService(MonitorRepository monitorRepository, AuditService auditService) {
         this.monitorRepository = monitorRepository;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -32,7 +34,9 @@ public class MonitorService {
         entity.setEnabled(request.enabled() == null || request.enabled());
         entity.setTimeoutMs(request.timeoutMs());
 
-        return toResponse(monitorRepository.save(entity));
+        MonitorEntity saved = monitorRepository.save(entity);
+        auditService.log("MONITOR_CREATE", "monitor:" + saved.getId(), "SUCCESS", saved.getName());
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -55,7 +59,9 @@ public class MonitorService {
     public MonitorResponse updateEnabled(UUID id, boolean enabled) {
         MonitorEntity entity = getEntity(id);
         entity.setEnabled(enabled);
-        return toResponse(monitorRepository.save(entity));
+        MonitorEntity saved = monitorRepository.save(entity);
+        auditService.log("MONITOR_UPDATE_ENABLED", "monitor:" + saved.getId(), "SUCCESS", "enabled=" + enabled);
+        return toResponse(saved);
     }
 
     private void validateTargetUrl(String rawUrl) {
