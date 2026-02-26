@@ -1,0 +1,12 @@
+services:
+  pulseguard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pulseguard:local
+    container_name: pulseguard
+    ports:
+      - "8080:8080"
+    environment:
+      - JAVA_TOOL_OPTIONS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75
+    restart: unless-stopped
