@@ -75,8 +75,37 @@ Default frontend URL: `http://localhost:5173`
   - `EmptyState`, `LoadingState`, `ErrorState`
   - toast helper (`notify`)
 
+## FE quality gate (ticket #58)
+- Accessibility baseline:
+  - visible focus styles on interactive controls
+  - skip-link to main content in app shell
+  - modal semantics (`role="dialog"`, `aria-modal`, ESC + backdrop close)
+  - labeled filter controls for incident search/sort
+  - table semantics (`scope="col"`, table `aria-label` support)
+- Responsiveness polish:
+  - app shell adapts to tablet/mobile (nav wraps, compact header/content spacing)
+  - key page headers and filter controls wrap safely on smaller widths
+- E2E smoke:
+  - Playwright smoke specs under `e2e/smoke.spec.ts`
+  - covers major route navigation + one key admin action flow (status page create)
+
 ## Build / quality
 ```bash
 npm run lint
 npm run build
 ```
+
+## Run E2E smoke tests
+```bash
+npm run test:e2e:smoke
+```
+
+If Playwright browsers are missing on a fresh machine:
+```bash
+npx playwright install chromium
+```
+
+## Known limitations
+- Smoke tests use frontend-level API mocking to stay deterministic and low-risk.
+- They validate critical UI flow wiring, not full backend contract behavior.
+- Deeper cross-browser/a11y auditing (axe/pa11y, screen-reader QA) is not yet part of CI.

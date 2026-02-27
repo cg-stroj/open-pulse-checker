@@ -2,6 +2,14 @@
 
 Open Pulse Checker is a security-first, self-host-first OSS monitoring platform.
 
+## Frontend quality gate (ticket #58)
+- Accessibility/responsiveness baseline closure was applied for major admin routes (focus visibility, keyboard-first affordances, labeling, responsive shell polish).
+- Smoke E2E coverage is available in `frontend/e2e/smoke.spec.ts` (major navigation + key admin action flow).
+- Run frontend quality checks:
+  - `cd frontend && npm run lint && npm run build`
+  - `cd frontend && npm run test:e2e:smoke`
+- Known limitation: smoke tests are API-mocked UI smoke (deterministic FE gate), not full backend integration tests.
+
 ## Phase 2.3 delivered (audit explorer + export UX)
 - ADMIN audit API:
   - `GET /api/v1/admin/audit-events` (search/filter + pagination)

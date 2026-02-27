@@ -16,13 +16,34 @@ export function Field({ label, children }: FieldProps) {
 }
 
 export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn('w-full rounded-md border border-surface-border bg-bg-panel px-3 py-2 text-sm text-text-primary outline-none transition focus:border-accent')} {...props} />
+  return (
+    <input
+      className={cn(
+        'w-full rounded-md border border-surface-border bg-bg-panel px-3 py-2 text-sm text-text-primary outline-none transition focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/70',
+      )}
+      {...props}
+    />
+  )
 }
 
 export function SelectInput(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn('w-full rounded-md border border-surface-border bg-bg-panel px-3 py-2 text-sm text-text-primary outline-none transition focus:border-accent')} {...props} />
+  return (
+    <select
+      className={cn(
+        'w-full rounded-md border border-surface-border bg-bg-panel px-3 py-2 text-sm text-text-primary outline-none transition focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/70',
+      )}
+      {...props}
+    />
+  )
 }
 
 export function TextAreaInput(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn('w-full rounded-md border border-surface-border bg-bg-panel px-3 py-2 text-sm text-text-primary outline-none transition focus:border-accent')} {...props} />
+  return (
+    <textarea
+      className={cn(
+        'w-full rounded-md border border-surface-border bg-bg-panel px-3 py-2 text-sm text-text-primary outline-none transition focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/70',
+      )}
+      {...props}
+    />
+  )
 }

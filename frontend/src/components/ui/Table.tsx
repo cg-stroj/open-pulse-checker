@@ -9,16 +9,17 @@ interface Column<T> {
 interface DataTableProps<T> {
   data: T[]
   columns: Column<T>[]
+  ariaLabel?: string
 }
 
-export function DataTable<T extends object>({ data, columns }: DataTableProps<T>) {
+export function DataTable<T extends object>({ data, columns, ariaLabel = 'Data table' }: DataTableProps<T>) {
   return (
-    <div className="overflow-hidden rounded-lg border border-surface-border bg-bg-elevated">
-      <table className="min-w-full divide-y divide-surface-border text-sm">
+    <div className="overflow-x-auto rounded-lg border border-surface-border bg-bg-elevated">
+      <table aria-label={ariaLabel} className="min-w-full divide-y divide-surface-border text-sm">
         <thead className="bg-bg-panel text-left text-text-muted">
           <tr>
             {columns.map((column) => (
-              <th key={String(column.key)} className="px-4 py-3 font-medium">
+              <th key={String(column.key)} scope="col" className="px-4 py-3 font-medium">
                 {column.header}
               </th>
             ))}

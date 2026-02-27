@@ -19,11 +19,17 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-bg-base text-text-primary">
+      <a
+        href="#main-content"
+        className="sr-only z-[60] rounded-md bg-accent px-3 py-2 text-sm font-medium text-bg-base focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+      >
+        Skip to main content
+      </a>
       <div className={cn('fixed left-0 right-0 top-0 z-50 h-1 bg-accent transition-opacity', isFetching > 0 ? 'opacity-100' : 'opacity-0')} />
-      <div className="grid min-h-screen grid-cols-[240px_1fr]">
-        <aside className="border-r border-surface-border bg-bg-elevated p-4">
-          <h1 className="mb-8 text-lg font-semibold">Open Pulse Checker</h1>
-          <nav className="space-y-2">
+      <div className="grid min-h-screen md:grid-cols-[240px_1fr]">
+        <aside className="border-b border-surface-border bg-bg-elevated p-4 md:border-b-0 md:border-r">
+          <h1 className="mb-4 text-lg font-semibold md:mb-8">Open Pulse Checker</h1>
+          <nav aria-label="Primary" className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:block md:space-y-2">
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -41,12 +47,12 @@ export function AppShell() {
           </nav>
         </aside>
 
-        <div className="flex min-h-screen flex-col">
-          <header className="flex h-16 items-center justify-between border-b border-surface-border bg-bg-elevated px-6">
+        <div className="flex min-h-screen min-w-0 flex-col">
+          <header className="flex min-h-16 flex-wrap items-center justify-between gap-2 border-b border-surface-border bg-bg-elevated px-4 py-3 md:px-6">
             <p className="text-sm text-text-muted">Foundation shell · React + TS + Vite</p>
-            <p className="rounded-full bg-bg-panel px-3 py-1 text-xs text-text-secondary">API: {appConfig.apiBaseUrl}</p>
+            <p className="max-w-full rounded-full bg-bg-panel px-3 py-1 text-xs text-text-secondary">API: {appConfig.apiBaseUrl}</p>
           </header>
-          <main className="flex-1 bg-bg-base p-6">
+          <main id="main-content" className="flex-1 bg-bg-base p-4 md:p-6">
             <Outlet />
           </main>
         </div>

@@ -160,7 +160,7 @@ export function IncidentsPage() {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold">Incidents Console</h2>
           <p className="text-sm text-text-secondary">Filter, inspect and manually control incident lifecycle.</p>
@@ -171,19 +171,25 @@ export function IncidentsPage() {
       <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
         <aside className="space-y-3 rounded-lg border border-surface-border bg-bg-elevated p-4">
           <div className="grid gap-2">
-            <TextInput placeholder="Search by monitor, reason, ID" value={search} onChange={(event) => setSearch(event.target.value)} />
-            <div className="grid grid-cols-2 gap-2">
-              <SelectInput value={stateFilter} onChange={(event) => setStateFilter(event.target.value as 'ALL' | IncidentState)}>
-                <option value="ALL">All states</option>
-                <option value="OPEN">Open</option>
-                <option value="ACKNOWLEDGED">Acknowledged</option>
-                <option value="RESOLVED">Resolved</option>
-              </SelectInput>
-              <SelectInput value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
-                <option value="newest">Newest first</option>
-                <option value="oldest">Oldest first</option>
-                <option value="monitor">Monitor name</option>
-              </SelectInput>
+            <Field label="Search incidents">
+              <TextInput placeholder="Search by monitor, reason, ID" value={search} onChange={(event) => setSearch(event.target.value)} />
+            </Field>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Field label="Filter by state">
+                <SelectInput value={stateFilter} onChange={(event) => setStateFilter(event.target.value as 'ALL' | IncidentState)}>
+                  <option value="ALL">All states</option>
+                  <option value="OPEN">Open</option>
+                  <option value="ACKNOWLEDGED">Acknowledged</option>
+                  <option value="RESOLVED">Resolved</option>
+                </SelectInput>
+              </Field>
+              <Field label="Sort incidents">
+                <SelectInput value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="monitor">Monitor name</option>
+                </SelectInput>
+              </Field>
             </div>
           </div>
 
