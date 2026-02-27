@@ -2,11 +2,16 @@ package io.openpulsechecker.service;
 
 import io.openpulsechecker.api.CreateMonitorRequest;
 import io.openpulsechecker.api.MonitorResponse;
+import io.openpulsechecker.api.UpdateMonitorRequest;
 import io.openpulsechecker.audit.AuditService;
+import io.openpulsechecker.persistence.CheckResultEntity;
+import io.openpulsechecker.persistence.CheckResultRepository;
 import io.openpulsechecker.persistence.MonitorEntity;
 import io.openpulsechecker.persistence.MonitorRepository;
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,10 +20,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class MonitorService {
 
     private final MonitorRepository monitorRepository;
+    private final CheckResultRepository checkResultRepository;
     private final AuditService auditService;
 
-    public MonitorService(MonitorRepository monitorRepository, AuditService auditService) {
+    public MonitorService(MonitorRepository monitorRepository,
+                          CheckResultRepository checkResultRepository,
+                          AuditService auditService) {
         this.monitorRepository = monitorRepository;
+        this.checkResultRepository = checkResultRepository;
         this.auditService = auditService;
     }
 
@@ -36,12 +45,21 @@ public class MonitorService {
 
         MonitorEntity saved = monitorRepository.save(entity);
         auditService.log("MONITOR_CREATE", "monitor:" + saved.getId(), "SUCCESS", saved.getName());
-        return toResponse(saved);
+        return toResponse(saved, null);
     }
 
     @Transactional(readOnly = true)
     public List<MonitorResponse> listAll() {
-        return monitorRepository.findAll().stream().map(this::toResponse).toList();
+        List<MonitorEntity> monitors = monitorRepository.findAll();
+        if (monitors.isEmpty()) return List.of();
+
+        List<UUID> ids = monitors.stream().map(MonitorEntity::getId).toList();
+        Map<UUID, CheckResultEntity> latestByMonitor = new HashMap<>();
+        for (CheckResultEntity check : checkResultRepository.findLatestForMonitorIds(ids)) {
+            latestByMonitor.put(check.getMonitorId(), check);
+        }
+
+        return monitors.stream().map(monitor -> toResponse(monitor, latestByMonitor.get(monitor.getId()))).toList();
     }
 
     @Transactional(readOnly = true)
@@ -52,7 +70,27 @@ public class MonitorService {
 
     @Transactional(readOnly = true)
     public MonitorResponse get(UUID id) {
-        return toResponse(getEntity(id));
+        MonitorEntity entity = getEntity(id);
+        CheckResultEntity lastCheck = checkResultRepository.findTopByMonitorIdOrderByCheckedAtDesc(id).orElse(null);
+        return toResponse(entity, lastCheck);
+    }
+
+    @Transactional
+    public MonitorResponse update(UUID id, UpdateMonitorRequest request) {
+        validateTargetUrl(request.targetUrl());
+
+        MonitorEntity entity = getEntity(id);
+        entity.setName(request.name().trim());
+        entity.setType(request.type());
+        entity.setTargetUrl(request.targetUrl().trim());
+        entity.setIntervalSec(request.intervalSec());
+        entity.setEnabled(request.enabled());
+        entity.setTimeoutMs(request.timeoutMs());
+
+        MonitorEntity saved = monitorRepository.save(entity);
+        auditService.log("MONITOR_UPDATE", "monitor:" + saved.getId(), "SUCCESS", saved.getName());
+        CheckResultEntity lastCheck = checkResultRepository.findTopByMonitorIdOrderByCheckedAtDesc(id).orElse(null);
+        return toResponse(saved, lastCheck);
     }
 
     @Transactional
@@ -61,7 +99,8 @@ public class MonitorService {
         entity.setEnabled(enabled);
         MonitorEntity saved = monitorRepository.save(entity);
         auditService.log("MONITOR_UPDATE_ENABLED", "monitor:" + saved.getId(), "SUCCESS", "enabled=" + enabled);
-        return toResponse(saved);
+        CheckResultEntity lastCheck = checkResultRepository.findTopByMonitorIdOrderByCheckedAtDesc(id).orElse(null);
+        return toResponse(saved, lastCheck);
     }
 
     private void validateTargetUrl(String rawUrl) {
@@ -75,7 +114,7 @@ public class MonitorService {
         }
     }
 
-    private MonitorResponse toResponse(MonitorEntity entity) {
+    private MonitorResponse toResponse(MonitorEntity entity, CheckResultEntity latestCheck) {
         return new MonitorResponse(
                 entity.getId(),
                 entity.getName(),
@@ -84,6 +123,10 @@ public class MonitorService {
                 entity.getIntervalSec(),
                 entity.isEnabled(),
                 entity.getTimeoutMs(),
+                latestCheck != null ? latestCheck.getCheckedAt() : null,
+                latestCheck != null ? latestCheck.getStatus() : null,
+                latestCheck != null ? latestCheck.getStatusCode() : null,
+                latestCheck != null ? latestCheck.getLatencyMs() : null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );

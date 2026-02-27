@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -41,6 +42,11 @@ public class MonitorController {
     @GetMapping("/{id}")
     public MonitorResponse get(@PathVariable UUID id) {
         return monitorService.get(id);
+    }
+
+    @PutMapping("/{id}")
+    public MonitorResponse update(@PathVariable UUID id, @Valid @RequestBody UpdateMonitorRequest request) {
+        return monitorService.update(id, request);
     }
 
     @PatchMapping("/{id}/enabled")

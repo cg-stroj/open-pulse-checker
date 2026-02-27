@@ -7,6 +7,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -91,6 +92,54 @@ class MonitorApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.monitorId").value(id))
                 .andExpect(jsonPath("$.status").value("UP"));
+
+        mockMvc.perform(get("/api/v1/monitors/" + id).with(httpBasic("admin", "admin-change-me")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lastCheckAt").exists())
+                .andExpect(jsonPath("$.lastCheckStatus").value("UP"));
+    }
+
+    @Test
+    void updateMonitorAsAdmin() throws Exception {
+        String createPayload = """
+                {
+                  "name": "Docs",
+                  "type": "HTTP",
+                  "targetUrl": "https://example.com",
+                  "intervalSec": 60,
+                  "enabled": true,
+                  "timeoutMs": 1200
+                }
+                """;
+
+        MvcResult created = mockMvc.perform(post("/api/v1/monitors")
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createPayload))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String response = created.getResponse().getContentAsString();
+        String id = response.replaceAll(".*\\\"id\\\":\\\"([^\\\"]+)\\\".*", "$1");
+
+        mockMvc.perform(put("/api/v1/monitors/" + id)
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Docs API",
+                                  "type": "HTTP",
+                                  "targetUrl": "https://example.com/health",
+                                  "intervalSec": 120,
+                                  "enabled": false,
+                                  "timeoutMs": 5000
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.name").value("Docs API"))
+                .andExpect(jsonPath("$.enabled").value(false))
+                .andExpect(jsonPath("$.intervalSec").value(120));
     }
 
     @Test
@@ -125,6 +174,21 @@ class MonitorApiIntegrationTest {
                         .with(httpBasic("viewer", "viewer-change-me"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"enabled\":false}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(put("/api/v1/monitors/00000000-0000-0000-0000-000000000000")
+                        .with(httpBasic("viewer", "viewer-change-me"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  \"name\": \"Docs\",
+                                  \"type\": \"HTTP\",
+                                  \"targetUrl\": \"https://example.com\",
+                                  \"intervalSec\": 60,
+                                  \"enabled\": true,
+                                  \"timeoutMs\": 1200
+                                }
+                                """))
                 .andExpect(status().isForbidden());
     }
 }

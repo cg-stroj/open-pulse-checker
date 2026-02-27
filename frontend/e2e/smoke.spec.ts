@@ -69,12 +69,96 @@ async function mockApi(page: Page) {
         {
           id: 'm1',
           name: 'API Gateway',
-          target: 'https://example.com/health',
+          type: 'HTTP',
+          targetUrl: 'https://example.com/health',
           enabled: true,
-          intervalSeconds: 60,
+          intervalSec: 60,
+          timeoutMs: 1200,
+          lastCheckAt: new Date().toISOString(),
+          lastCheckStatus: 'UP',
+          lastStatusCode: 200,
+          lastLatencyMs: 48,
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         },
       ])
+    }
+
+    if (/\/api\/v1\/monitors\/[^/]+$/.test(pathname) && method === 'GET') {
+      return json({
+        id: 'm1',
+        name: 'API Gateway',
+        type: 'HTTP',
+        targetUrl: 'https://example.com/health',
+        enabled: true,
+        intervalSec: 60,
+        timeoutMs: 1200,
+        lastCheckAt: new Date().toISOString(),
+        lastCheckStatus: 'UP',
+        lastStatusCode: 200,
+        lastLatencyMs: 48,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    }
+
+    if (pathname.endsWith('/monitors') && method === 'POST') {
+      const payload = JSON.parse(route.request().postData() || '{}')
+      return json({
+        id: 'm-new',
+        ...payload,
+        lastCheckAt: null,
+        lastCheckStatus: null,
+        lastStatusCode: null,
+        lastLatencyMs: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }, 201)
+    }
+
+    if (/\/api\/v1\/monitors\/[^/]+$/.test(pathname) && method === 'PUT') {
+      const payload = JSON.parse(route.request().postData() || '{}')
+      return json({
+        id: pathname.split('/').pop(),
+        ...payload,
+        lastCheckAt: new Date().toISOString(),
+        lastCheckStatus: 'UP',
+        lastStatusCode: 200,
+        lastLatencyMs: 45,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    }
+
+    if (/\/api\/v1\/monitors\/[^/]+\/enabled$/.test(pathname) && method === 'PATCH') {
+      const payload = JSON.parse(route.request().postData() || '{}')
+      return json({
+        id: pathname.split('/')[4],
+        name: 'API Gateway',
+        type: 'HTTP',
+        targetUrl: 'https://example.com/health',
+        enabled: payload.enabled,
+        intervalSec: 60,
+        timeoutMs: 1200,
+        lastCheckAt: new Date().toISOString(),
+        lastCheckStatus: 'UP',
+        lastStatusCode: 200,
+        lastLatencyMs: 48,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    }
+
+    if (/\/api\/v1\/monitors\/[^/]+\/run-check$/.test(pathname) && method === 'POST') {
+      return json({
+        id: 'c-1',
+        monitorId: pathname.split('/')[4],
+        status: 'UP',
+        statusCode: 200,
+        latencyMs: 40,
+        checkedAt: new Date().toISOString(),
+        error: null,
+      })
     }
 
     if (pathname.endsWith('/admin/incidents') && method === 'GET') {
@@ -147,6 +231,9 @@ test('login gate smoke and navigation across major routes', async ({ page }) => 
   await page.getByRole('button', { name: 'Sign in' }).click()
 
   await expect(page.getByRole('heading', { name: 'Ops Observability Dashboard' })).toBeVisible()
+  await page.getByRole('link', { name: 'Monitors' }).click()
+  await expect(page.getByRole('heading', { name: 'Monitors', exact: true })).toBeVisible()
+
   await page.getByRole('link', { name: 'Incidents' }).click()
   await expect(page.getByRole('heading', { name: 'Incidents Console' })).toBeVisible()
 

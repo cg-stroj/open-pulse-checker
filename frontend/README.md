@@ -81,6 +81,12 @@ Default frontend URL: `http://localhost:5173`
   - baseline filters: global search, actor, action, resource, outcome, date range
   - CSV/JSON export flow via `/api/v1/admin/audit-events/export`
   - export success/failure toast feedback for operational troubleshooting
+- Monitors (`/monitors`):
+  - list/detail/create/edit/toggle/run-check workspace on top of `/api/v1/monitors`
+  - baseline filtering (search, last-check status, enabled state) and sorting (name/newest/oldest)
+  - status badges + last-check visibility (`lastCheckStatus`, `lastCheckAt`, status code, latency)
+  - safe confirmations for write actions (create, update, enable/disable, run-check)
+  - explicit loading/error/empty states for resilient UX flows
 - Status Pages (`/status-pages`):
   - admin list/create against `/api/v1/status-pages`
   - monitor binding workspace (`attach`, `reorder`, `remove`) for selected page
