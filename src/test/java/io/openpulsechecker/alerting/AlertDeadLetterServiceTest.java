@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.openpulsechecker.audit.AuditService;
 import java.time.Clock;
 import java.time.Instant;
@@ -23,6 +24,7 @@ class AlertDeadLetterServiceTest {
                 repo,
                 dispatch,
                 audit,
+                new SimpleMeterRegistry(),
                 Clock.fixed(Instant.parse("2026-02-26T22:00:00Z"), ZoneOffset.UTC));
 
         UUID id = UUID.randomUUID();

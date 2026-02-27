@@ -1,0 +1,62 @@
+groups:
+  - name: openpulse-multi-node-observability
+    rules:
+      - alert: OpenPulseSchedulerLockContentionHigh
+        expr: sum(rate(openpulse_scheduler_lock_acquire_fail_total[5m])) / clamp_min(sum(rate(openpulse_scheduler_lock_acquire_success_total[5m]) + rate(openpulse_scheduler_lock_acquire_fail_total[5m])), 1) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+          service: open-pulse-checker
+        annotations:
+          summary: "Scheduler lock contention is high"
+          description: "More than 20% of lock acquisitions are contended over 10m. Check node count, scheduler interval overlap, and DB lock table performance."
+
+      - alert: OpenPulseSchedulerExecutionSkipsHigh
+        expr: sum(rate(openpulse_scheduler_execution_skip_lock_total[5m])) > 0.10
+        for: 15m
+        labels:
+          severity: warning
+          service: open-pulse-checker
+        annotations:
+          summary: "Scheduler lock-based skip rate is elevated"
+          description: "Checks are frequently skipped due to lock issues. Inspect lock renew failures and worker saturation before SLO breach."
+
+      - alert: OpenPulseAlertDlqBacklogGrowing
+        expr: openpulse_alerts_dlq_backlog > 25
+        for: 15m
+        labels:
+          severity: critical
+          service: open-pulse-checker
+        annotations:
+          summary: "Alert DLQ backlog is above critical threshold"
+          description: "Unreplayed alert backlog is >25. Notification delivery may be degraded. Triage webhook target and replay drained items."
+
+      - alert: OpenPulseAlertDlqOldestItemTooOld
+        expr: openpulse_alerts_dlq_oldest_age_seconds > 900
+        for: 10m
+        labels:
+          severity: critical
+          service: open-pulse-checker
+        annotations:
+          summary: "Oldest DLQ item age exceeded 15 minutes"
+          description: "Alert delivery delay is beyond SLO tolerance. Prioritize notifier recovery and replay."
+
+      - alert: OpenPulseNotifierFailureRateHigh
+        expr: sum(rate(openpulse_alerts_dispatch_attempts_total{outcome="failed"}[10m])) / clamp_min(sum(rate(openpulse_alerts_dispatch_attempts_total{outcome=~"success|failed"}[10m])), 1) > 0.05
+        for: 10m
+        labels:
+          severity: critical
+          service: open-pulse-checker
+        annotations:
+          summary: "Notifier failure rate exceeded 5%"
+          description: "Alert notifier failures are above SLO budget. Check webhook availability, TLS/DNS, and upstream rate limits."
+
+      - alert: OpenPulseAlertDeliveryDelayP95High
+        expr: histogram_quantile(0.95, sum by (le) (rate(openpulse_alerts_delivery_delay_seconds_bucket{outcome="success"}[10m]))) > 120
+        for: 15m
+        labels:
+          severity: warning
+          service: open-pulse-checker
+        annotations:
+          summary: "Alert delivery p95 delay is above 2 minutes"
+          description: "Investigate queueing/backpressure and notifier retries before critical incidents are delayed."

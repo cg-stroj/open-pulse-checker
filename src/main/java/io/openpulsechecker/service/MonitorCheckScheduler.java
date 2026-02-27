@@ -37,6 +37,8 @@ public class MonitorCheckScheduler {
     private final Counter lockAcquireFailCounter;
     private final Counter lockAcquireStealCounter;
     private final Counter lockSkipCounter;
+    private final Counter lockRenewFailedCounter;
+    private final Counter localInFlightSkipCounter;
 
     public MonitorCheckScheduler(
             MonitorRepository monitorRepository,
@@ -57,6 +59,8 @@ public class MonitorCheckScheduler {
         this.lockAcquireFailCounter = meterRegistry.counter("openpulse.scheduler.lock.acquire.fail");
         this.lockAcquireStealCounter = meterRegistry.counter("openpulse.scheduler.lock.acquire.steal");
         this.lockSkipCounter = meterRegistry.counter("openpulse.scheduler.execution.skip.lock");
+        this.lockRenewFailedCounter = meterRegistry.counter("openpulse.scheduler.lock.renew.fail");
+        this.localInFlightSkipCounter = meterRegistry.counter("openpulse.scheduler.execution.skip.local_inflight");
     }
 
     @Scheduled(fixedDelayString = "${openpulse.scheduler.poll-interval-ms}")
@@ -81,6 +85,7 @@ public class MonitorCheckScheduler {
 
     void dispatchIfNotRunning(UUID monitorId) {
         if (!inFlightMonitorIds.add(monitorId)) {
+            localInFlightSkipCounter.increment();
             return;
         }
 
@@ -102,6 +107,7 @@ public class MonitorCheckScheduler {
         monitorCheckExecutor.submit(() -> {
             try {
                 if (!schedulerLockService.renew(lockName, ownerId, leaseDuration)) {
+                    lockRenewFailedCounter.increment();
                     lockSkipCounter.increment();
                     return;
                 }

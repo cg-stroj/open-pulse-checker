@@ -155,7 +155,20 @@ Telemetry counters (Micrometer):
 - `openpulse.scheduler.lock.acquire.success`
 - `openpulse.scheduler.lock.acquire.fail`
 - `openpulse.scheduler.lock.acquire.steal`
+- `openpulse.scheduler.lock.renew.fail`
 - `openpulse.scheduler.execution.skip.lock`
+- `openpulse.scheduler.execution.skip.local_inflight`
+
+Additional multi-node observability metrics:
+- Alert dispatch attempts: `openpulse.alerts.dispatch.attempts{channel,outcome}`
+- Alert dispatch latency: `openpulse.alerts.dispatch.latency{channel,outcome}`
+- End-to-end alert delivery delay: `openpulse.alerts.delivery.delay{channel,outcome}`
+- DLQ backlog gauge: `openpulse.alerts.dlq.backlog`
+- DLQ oldest age gauge: `openpulse.alerts.dlq.oldest.age.seconds`
+- DLQ replay counter: `openpulse.alerts.dlq.replay{result}`
+- Check latency timer: `openpulse.checks.latency{status}`
+
+Dashboard and alerts assets are in `monitoring/dashboard-observability.md` and `monitoring/alerts-prometheus.yml`.
 
 ## Webhook retry/idempotency
 ```yaml

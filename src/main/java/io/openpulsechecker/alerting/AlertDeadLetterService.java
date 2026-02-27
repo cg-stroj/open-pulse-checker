@@ -1,5 +1,6 @@
 package io.openpulsechecker.alerting;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.openpulsechecker.audit.AuditService;
 import io.openpulsechecker.service.ResourceNotFoundException;
 import java.time.Clock;
@@ -14,15 +15,18 @@ public class AlertDeadLetterService {
     private final AlertDeadLetterRepository repository;
     private final AlertDispatchService alertDispatchService;
     private final AuditService auditService;
+    private final MeterRegistry meterRegistry;
     private final Clock clock;
 
     public AlertDeadLetterService(AlertDeadLetterRepository repository,
                                   AlertDispatchService alertDispatchService,
                                   AuditService auditService,
+                                  MeterRegistry meterRegistry,
                                   Clock clock) {
         this.repository = repository;
         this.alertDispatchService = alertDispatchService;
         this.auditService = auditService;
+        this.meterRegistry = meterRegistry;
         this.clock = clock;
     }
 
@@ -44,6 +48,7 @@ public class AlertDeadLetterService {
         item.setReplayedBy("admin");
         item.setReplayResult("SUCCESS");
         repository.save(item);
+        meterRegistry.counter("openpulse.alerts.dlq.replay", "result", "success").increment();
         auditService.log("ALERT_DLQ_REPLAY", "dlq:" + id, "SUCCESS", null);
     }
 }

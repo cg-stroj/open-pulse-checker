@@ -1,6 +1,7 @@
 package io.openpulsechecker.service;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.openpulsechecker.api.CheckResultResponse;
 import io.openpulsechecker.domain.CheckStatus;
 import io.openpulsechecker.audit.AuditService;
@@ -62,6 +63,11 @@ public class CheckExecutionService {
 
         auditService.log("MONITOR_RUN_CHECK", "monitor:" + monitorId, "SUCCESS", "status=" + saved.getStatus());
         meterRegistry.counter("openpulse.checks.executed", "status", saved.getStatus().name()).increment();
+        Timer.builder("openpulse.checks.latency")
+                .description("Observed monitor check latency from target response")
+                .tag("status", saved.getStatus().name())
+                .register(meterRegistry)
+                .record(java.time.Duration.ofMillis(Math.max(0L, saved.getLatencyMs() == null ? 0L : saved.getLatencyMs())));
 
         return new CheckResultResponse(
                 saved.getId(),

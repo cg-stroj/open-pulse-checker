@@ -5,7 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.openpulsechecker.audit.AuditService;
 import io.openpulsechecker.domain.CheckStatus;
 import io.openpulsechecker.domain.MonitorType;
@@ -16,8 +16,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import io.micrometer.core.instrument.Counter;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -34,11 +32,6 @@ class CheckExecutionServiceTest {
     private IncidentService incidentService;
     @Mock
     private AuditService auditService;
-    @Mock
-    private MeterRegistry meterRegistry;
-
-    @InjectMocks
-    private CheckExecutionService checkExecutionService;
 
     @Test
     void persistsDownResultFromHttpOutcome() {
@@ -53,8 +46,15 @@ class CheckExecutionServiceTest {
         when(httpCheckClient.execute("https://example.com", 500))
                 .thenReturn(new HttpCheckOutcome(false, 503, 120L, null));
         when(checkResultRepository.save(any(CheckResultEntity.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(meterRegistry.counter(org.mockito.ArgumentMatchers.eq("openpulse.checks.executed"), org.mockito.ArgumentMatchers.any(String[].class)))
-                .thenReturn(org.mockito.Mockito.mock(Counter.class));
+
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        CheckExecutionService checkExecutionService = new CheckExecutionService(
+                monitorService,
+                httpCheckClient,
+                checkResultRepository,
+                incidentService,
+                auditService,
+                meterRegistry);
 
         checkExecutionService.runCheck(monitorId);
 
@@ -63,5 +63,6 @@ class CheckExecutionServiceTest {
         assertEquals(CheckStatus.DOWN, captor.getValue().getStatus());
         assertEquals(503, captor.getValue().getStatusCode());
         verify(incidentService).applyTransition(any(), any(), any(), any());
+        assertEquals(1L, meterRegistry.find("openpulse.checks.latency").timers().size());
     }
 }

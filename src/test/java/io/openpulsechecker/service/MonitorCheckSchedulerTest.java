@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import io.openpulsechecker.persistence.CheckResultEntity;
 import io.openpulsechecker.persistence.CheckResultRepository;
 import io.openpulsechecker.persistence.MonitorEntity;
@@ -72,20 +73,48 @@ class MonitorCheckSchedulerTest {
         when(schedulerLockService.renew(anyString(), anyString(), any())).thenReturn(true);
 
         QueuedExecutor executor = new QueuedExecutor();
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
         var scheduler = new MonitorCheckScheduler(
                 monitorRepository, checkResultRepository, checkExecutionService,
                 executor, schedulerLockService,
                 Clock.fixed(Instant.parse("2026-02-26T22:01:00Z"), ZoneOffset.UTC),
-                new SimpleMeterRegistry());
+                meterRegistry);
 
         scheduler.scheduleDueChecks();
         scheduler.scheduleDueChecks();
 
         verify(checkExecutionService, never()).runCheck(monitorId);
         assertTrue(executor.taskCount() == 1);
+        assertEquals(1.0, meterRegistry.get("openpulse.scheduler.execution.skip.local_inflight").counter().count());
 
         executor.runAll();
         verify(checkExecutionService).runCheck(monitorId);
+    }
+
+    @Test
+    void incrementsRenewFailureMetricWhenLeaseRenewFails() {
+        UUID monitorId = UUID.randomUUID();
+        MonitorEntity monitor = new MonitorEntity();
+        monitor.setId(monitorId);
+        monitor.setEnabled(true);
+        when(monitorRepository.findByEnabledTrue()).thenReturn(List.of(monitor));
+        when(checkResultRepository.findTopByMonitorIdOrderByCheckedAtDesc(monitorId)).thenReturn(Optional.empty());
+        when(schedulerLockService.acquire(anyString(), anyString(), any())).thenReturn(LockAcquireOutcome.ACQUIRED);
+        when(schedulerLockService.renew(anyString(), anyString(), any())).thenReturn(false);
+
+        QueuedExecutor executor = new QueuedExecutor();
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        var scheduler = new MonitorCheckScheduler(
+                monitorRepository, checkResultRepository, checkExecutionService,
+                executor, schedulerLockService,
+                Clock.fixed(Instant.parse("2026-02-26T22:01:00Z"), ZoneOffset.UTC),
+                meterRegistry);
+
+        scheduler.scheduleDueChecks();
+        executor.runAll();
+
+        verify(checkExecutionService, never()).runCheck(monitorId);
+        assertEquals(1.0, meterRegistry.get("openpulse.scheduler.lock.renew.fail").counter().count());
     }
 
     @Test

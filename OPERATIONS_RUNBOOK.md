@@ -1,4 +1,4 @@
-# Operations Runbook (Phase 1.4)
+# Operations Runbook
 
 ## Backup before deploy/migration
 1. Put deployment in maintenance window.
@@ -24,6 +24,64 @@
 - Never use Flyway clean in production.
 - Apply schema changes with reviewed SQL migrations committed under `src/main/resources/db/migration`.
 - Phase 2.1 adds `V5__phase2_1_notification_policy.sql`; verify policy scope uniqueness and dispatch metadata indexes post-deploy.
+
+## Multi-node observability (Ticket #45)
+
+### SLO-aligned thresholds
+- **Lock contention ratio**: target <10%; warning if >20% for 10m.
+- **Scheduler lock skips**: warning if `skip.lock` sustained >0.10/s for 15m.
+- **Notifier failure ratio**: target <1%; critical if >5% for 10m.
+- **Alert delivery p95 delay**: warning if >120s for 15m.
+- **DLQ backlog**: critical if unreplayed backlog >25 for 15m.
+- **DLQ oldest age**: critical if oldest unreplayed item age >900s (15m) for 10m.
+
+### Key metrics (via `/actuator/metrics`)
+- `openpulse.scheduler.lock.acquire.success`
+- `openpulse.scheduler.lock.acquire.fail`
+- `openpulse.scheduler.lock.acquire.steal`
+- `openpulse.scheduler.lock.renew.fail`
+- `openpulse.scheduler.execution.skip.lock`
+- `openpulse.scheduler.execution.skip.local_inflight`
+- `openpulse.alerts.dispatch.attempts`
+- `openpulse.alerts.dispatch.latency`
+- `openpulse.alerts.delivery.delay`
+- `openpulse.alerts.dlq.backlog`
+- `openpulse.alerts.dlq.oldest.age.seconds`
+- `openpulse.alerts.dlq`
+- `openpulse.alerts.dlq.replay`
+
+### Alert triage playbooks
+
+#### 1) Scheduler lock contention high (warning)
+1. Check node count and scheduler cadence; verify no accidental over-scaling.
+2. Inspect DB performance around `scheduler_locks` table and slow queries.
+3. Compare `openpulse.scheduler.lock.acquire.steal` trend (crash recovery vs true contention).
+4. If contention persists, temporarily increase monitor intervals for low-priority checks.
+
+#### 2) Scheduler execution skip rate high (warning)
+1. Compare `openpulse.scheduler.execution.skip.lock` and `openpulse.scheduler.lock.renew.fail`.
+2. If renew failures spike, inspect thread pool saturation and JVM pauses.
+3. Validate DB connectivity/latency between app nodes and PostgreSQL.
+4. Ensure lock lease duration is adequate for current check execution profile.
+
+#### 3) DLQ backlog/age critical
+1. Verify notifier endpoint health (DNS, TLS, auth, 5xx/429 responses).
+2. Review failed dispatch reason from DLQ entries (never log secrets/tokens).
+3. Restore notifier availability, then replay items:
+   `POST /api/v1/admin/dlq/{id}/replay`.
+4. Confirm `openpulse.alerts.dlq.backlog` returns toward 0 and oldest age drops.
+
+#### 4) Notifier failure ratio critical
+1. Check upstream webhook SLO/status page and outbound network controls.
+2. Confirm `openpulse.alerts.dispatch.attempts{outcome="failed"}` by channel.
+3. If channel-specific, isolate failing channel and keep healthy channels active.
+4. If global, activate incident communication fallback and reduce duplicate traffic.
+
+#### 5) Alert delivery delay p95 high
+1. Inspect `openpulse.alerts.dispatch.latency` vs `openpulse.alerts.delivery.delay`.
+2. High dispatch latency => notifier call slowness; high delivery delay with low dispatch latency => queueing/retry pressure.
+3. Verify retry settings (`max-attempts`, `initial-backoff-ms`) and upstream rate limits.
+4. After mitigation, verify p95 trend returns below 120s.
 
 ## Rollback guidance (failed migration/deploy)
 1. Stop newly deployed app version.
