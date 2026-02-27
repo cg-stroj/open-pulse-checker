@@ -1,59 +1,64 @@
 # Roadmap
 
-## Phase 1
-### 1.0/1.1 (done)
-- Core monitor/check/incident model
-- API + scheduler baseline
-- Security baseline and role policies
-- Alerting abstraction baseline
+This roadmap is a chronological delivery record for Open Pulse Checker.
 
-### 1.2 (done)
-- ✅ Distributed scheduler lock/lease (DB-backed, expiry steal)
-- ✅ Webhook retry/backoff + idempotency key + duplicate suppression
-- ✅ DB-backed identity (users/roles, bcrypt, DB UserDetailsService)
-- ✅ Bootstrap admin initializer (config/env guarded)
-- ✅ Persistent auth + write-action audit logging
-- ✅ Test coverage for lock semantics, notifier retry/idempotency, DB auth role behavior, audit insertions
+## Timeline of delivered milestones
 
-## Phase 1.3 delivered
-- [x] Sensitive endpoint rate limiting with retry hint headers
-- [x] Service account API keys with hashed-secret storage and role mapping
-- [x] Webhook dead-letter queue + replay endpoint
-- [x] Actuator health/readiness/metrics baseline and security posture docs
+### Phase 1.0–1.1 · Foundation (initial baseline)
+- Core monitor/check/incident domain and scheduler baseline.
+- API surface for monitor operations and health endpoints.
+- Initial RBAC/security baseline and alerting abstraction.
 
-## Phase 1.4 (done)
-- ✅ Multi-instance scheduler lock hardening (stale recovery clarity, contention telemetry)
-- ✅ Scheduler dispatch idempotency check before execution
-- ✅ Production profile and compose stack for PostgreSQL deployment
-- ✅ Build/version metadata exposure via actuator info
-- ✅ Release hardening templates and operational runbook (backup/restore/rollback)
+### Phase 1.2 · Reliability + identity + audit
+- Distributed scheduler lock/lease model (`scheduler_locks`) with safe renewal/steal semantics.
+- Webhook retry/backoff with deterministic idempotency keys and duplicate suppression (`dispatched_alerts`).
+- Database-backed identity (`app_users`, `user_roles`) with bcrypt password storage.
+- Guarded bootstrap-admin initialization path.
+- Persistent audit logging for auth and admin write actions (`audit_events`).
 
-## Phase 2.0 delivered
-- [x] Public status pages by slug with monitor health summary and incident timeline
-- [x] ADMIN management API for page create/list and monitor attach/reorder/remove
-- [x] Status page schema + FK/indexed monitor mapping table
-- [x] Endpoint/security tests for public/private behavior and admin authz
+### Phase 1.3 · Security hardening
+- Sensitive endpoint rate limiting with retry hints.
+- Service/API key authentication (`X-API-Key`) with hashed secret persistence.
+- Dead-letter queue for failed webhook deliveries and admin replay endpoint.
+- Actuator observability baseline (`health`, `readiness`, `metrics`) with role controls.
 
-## Phase 2.1 delivered
-- [x] Notification policy customization model (global, per-monitor, per-status-page scopes)
-- [x] Severity routing rules + channel toggles (webhook)
-- [x] Cooldown and de-dup windows enforced in alert dispatch path
-- [x] Escalation step model (ordered, delay/min-severity metadata)
-- [x] ADMIN CRUD API for notification policies
-- [x] Flyway migration for policy persistence + dispatch metadata extensions
-- [x] Maintenance windows model (`ONE_TIME`, `RECURRING`) with timezone-aware evaluation
-- [x] Maintenance policy semantics (`SUPPRESS` vs `ANNOTATE`) integrated into incident/alert transition flow
-- [x] ADMIN CRUD API for maintenance windows
-- [x] Flyway migration for maintenance window persistence
+### Phase 1.4 · Production-readiness slice
+- Scheduler lock hardening with explicit acquire outcomes and contention telemetry.
+- Idempotent scheduler dispatch revalidation before check execution.
+- Production profile with PostgreSQL wiring and safe Flyway defaults.
+- Release-operability assets: runbook, changelog, and release templates.
 
-## Phase 2.2 delivered
-- [x] Admin-secured manual incident lifecycle operations (acknowledge/resolve/reopen)
-- [x] Incident annotations/comments via admin API
-- [x] Manual incident event persistence with actor/action/reason/from-to-state/timestamp
-- [x] Audit logging for every manual incident operation
-- [x] Unit + integration authz coverage for manual incident APIs
+### Phase 2.0 · Status pages
+- Public status pages by slug with monitor health summary and bounded incident timeline.
+- Admin APIs/UI for status page create/list and monitor attach/reorder/remove.
+- Public/private visibility controls for externally shared pages.
 
-## Next
-- paging/filtering and richer audit querying
-- incident history read APIs for timeline/detail UIs
-- multi-node operational tooling and metrics (dashboarding/alerts on new lock counters)
+### Phase 2.1 · Policy-driven operations
+- Notification policy system with scope precedence (`MONITOR` > `STATUS_PAGE` > `GLOBAL`).
+- Severity route rules, cooldown/de-dup behavior, and escalation-step metadata.
+- Maintenance windows (`ONE_TIME` / `RECURRING`, `SUPPRESS` / `ANNOTATE`) with timezone-aware evaluation.
+- Admin CRUD APIs and migrations for policy + maintenance window persistence.
+
+### Phase 2.2 · Incident operations lifecycle
+- Admin incident lifecycle controls: acknowledge, annotate, resolve, reopen.
+- Manual-event persistence for actor/action/reason/state transitions.
+- Audit integration for every manual incident operation.
+
+### Phase 2.3 · Audit explorer and exports
+- Admin audit query APIs with filterable retrieval and bounded CSV/JSON export.
+- Frontend Audit Explorer module for operational investigation workflows.
+
+### Phase 2.4 · List scalability and query ergonomics
+- Paging/filtering/sorting support for monitors, incidents, and status pages.
+- Backward-compatible response mode (`paged=false` legacy arrays, `paged=true` metadata envelope).
+
+### Frontend/admin UX expansion (current delivery wave)
+- Admin session UX with route guards and consistent 401/403 handling.
+- Delivered modules: dashboard, monitors, incidents, maintenance windows, notification policies, status pages, audit explorer.
+- Accessibility/responsiveness baseline and deterministic smoke E2E quality gate.
+
+## Concise future direction
+
+- Deepen incident history and timeline read APIs for richer RCA workflows.
+- Expand multi-node operational tooling and alert tuning on observability signals.
+- Continue release hardening for repeatable upgrades and lower-risk rollbacks.
