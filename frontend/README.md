@@ -31,9 +31,21 @@ Default frontend URL: `http://localhost:5173`
 ## Environment
 - `VITE_API_BASE_URL` (default fallback in code: `http://localhost:8080/api/v1`)
 
+## Auth/session behavior
+- Backend auth model is reused as-is (`HTTP Basic` + `ADMIN` role checks on `/api/v1/admin/**`).
+- Frontend sign-in validates credentials against an admin endpoint and then keeps an in-tab session.
+- Use a bootstrap/admin user from backend config (see root `README.md` bootstrap admin section).
+- Signing out clears tab session immediately.
+
 ## Delivered modules
 - App shell (`sidebar`, `topbar`, `content area`)
 - Global providers (query client + router + toaster)
+- Auth/session UX for admin API:
+  - dedicated sign-in route (`/login`) backed by backend HTTP Basic credentials
+  - protected admin route guard with redirect-to-login for unauthenticated access
+  - global 401 handling: clears session, shows actionable toast, redirects to `/login`
+  - global 403 handling: keeps session, shows access toast, redirects to `/unauthorized`
+  - session state stored in `sessionStorage` only (tab-scoped, no password persisted directly)
 - Error boundary + global query-fetching top indicator
 - Dashboard primitives playground
 - Incidents Console (`/incidents`):

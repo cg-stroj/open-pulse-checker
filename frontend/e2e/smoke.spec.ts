@@ -1,12 +1,20 @@
 import { expect, test, type Page } from '@playwright/test'
 
+const AUTH_STORAGE_KEY = 'opc.admin.auth'
+
 async function mockApi(page: Page) {
   await page.route('**/api/v1/**', async (route) => {
     const url = new URL(route.request().url())
     const { pathname } = url
     const method = route.request().method()
+    const authHeader = route.request().headers()['authorization']
 
     const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
+
+    const requiresAuth = pathname.startsWith('/api/v1/admin') || pathname === '/api/v1/monitors' || pathname === '/api/v1/status-pages'
+    if (requiresAuth && !authHeader) {
+      return json({ error: 'Unauthorized' }, 401)
+    }
 
     if (pathname.endsWith('/monitors') && method === 'GET') {
       return json([
@@ -76,8 +84,19 @@ test.beforeEach(async ({ page }) => {
   await mockApi(page)
 })
 
-test('navigation smoke across major routes', async ({ page }) => {
+async function seedAuthSession(page: Page) {
+  await page.addInitScript(([key, value]) => {
+    window.sessionStorage.setItem(key, JSON.stringify(value))
+  }, [AUTH_STORAGE_KEY, { username: 'admin', authorizationHeader: 'Basic dGVzdDp0ZXN0' }])
+}
+
+test('login gate smoke and navigation across major routes', async ({ page }) => {
   await page.goto('/dashboard')
+  await expect(page.getByRole('heading', { name: 'Admin sign in' })).toBeVisible()
+
+  await page.getByLabel('Username').fill('admin')
+  await page.getByLabel('Password').fill('admin-change-me')
+  await page.getByRole('button', { name: 'Sign in' }).click()
 
   await expect(page.getByRole('heading', { name: 'Frontend Foundation' })).toBeVisible()
   await page.getByRole('link', { name: 'Incidents' }).click()
@@ -97,6 +116,7 @@ test('navigation smoke across major routes', async ({ page }) => {
 })
 
 test('key action flow smoke: create status page', async ({ page }) => {
+  await seedAuthSession(page)
   await page.goto('/status-pages')
 
   await page.getByLabel('Page name').fill('Prod Ops')

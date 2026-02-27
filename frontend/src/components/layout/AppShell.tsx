@@ -1,7 +1,9 @@
 import { useIsFetching } from '@tanstack/react-query'
 import { NavLink, Outlet } from 'react-router-dom'
+import { useAuth } from '../../app/auth-hooks'
 import { appConfig } from '../../lib/config/app'
 import { cn } from '../../lib/utils/cn'
+import { Button } from '../ui/Button'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -16,6 +18,7 @@ const navItems = [
 
 export function AppShell() {
   const isFetching = useIsFetching()
+  const auth = useAuth()
 
   return (
     <div className="min-h-screen bg-bg-base text-text-primary">
@@ -50,6 +53,12 @@ export function AppShell() {
         <div className="flex min-h-screen min-w-0 flex-col">
           <header className="flex min-h-16 flex-wrap items-center justify-between gap-2 border-b border-surface-border bg-bg-elevated px-4 py-3 md:px-6">
             <p className="text-sm text-text-muted">Foundation shell · React + TS + Vite</p>
+            <div className="flex items-center gap-2">
+              <p className="max-w-full rounded-full bg-bg-panel px-3 py-1 text-xs text-text-secondary">Signed in: {auth.username ?? '—'}</p>
+              <Button variant="secondary" onClick={auth.logout}>
+                Sign out
+              </Button>
+            </div>
             <p className="max-w-full rounded-full bg-bg-panel px-3 py-1 text-xs text-text-secondary">API: {appConfig.apiBaseUrl}</p>
           </header>
           <main id="main-content" className="flex-1 bg-bg-base p-4 md:p-6">
