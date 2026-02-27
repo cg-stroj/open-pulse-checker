@@ -18,6 +18,8 @@ import io.openpulsechecker.auth.UserRoleRepository;
 import io.openpulsechecker.service.HttpCheckClient;
 import io.openpulsechecker.service.HttpCheckOutcome;
 import java.time.Instant;
+import io.openpulsechecker.persistence.MonitorEntity;
+import io.openpulsechecker.persistence.MonitorRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +46,7 @@ class MonitorApiIntegrationTest {
     @Autowired private AppUserRepository appUserRepository;
     @Autowired private UserRoleRepository userRoleRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private MonitorRepository monitorRepository;
 
     @BeforeEach
     void ensureViewerUser() {
@@ -190,5 +193,49 @@ class MonitorApiIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void listSupportsPagingFilteringAndSorting() throws Exception {
+        MonitorEntity alpha = new MonitorEntity();
+        alpha.setName("Alpha API");
+        alpha.setType(io.openpulsechecker.domain.MonitorType.HTTP);
+        alpha.setTargetUrl("https://example.com/a");
+        alpha.setIntervalSec(60);
+        alpha.setEnabled(true);
+        alpha.setTimeoutMs(1000);
+        monitorRepository.save(alpha);
+
+        MonitorEntity beta = new MonitorEntity();
+        beta.setName("Beta API");
+        beta.setType(io.openpulsechecker.domain.MonitorType.HTTP);
+        beta.setTargetUrl("https://example.com/b");
+        beta.setIntervalSec(30);
+        beta.setEnabled(false);
+        beta.setTimeoutMs(1000);
+        monitorRepository.save(beta);
+
+        mockMvc.perform(get("/api/v1/monitors")
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .param("paged", "true")
+                        .param("page", "0")
+                        .param("size", "1")
+                        .param("enabled", "true")
+                        .param("q", "alpha")
+                        .param("sortBy", "name")
+                        .param("sortDir", "asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.hasNext").value(false))
+                .andExpect(jsonPath("$.items[0].name").value("Alpha API"));
+
+        mockMvc.perform(get("/api/v1/monitors")
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .param("paged", "true")
+                        .param("size", "0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size").value(25));
     }
 }

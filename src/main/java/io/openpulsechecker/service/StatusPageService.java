@@ -15,6 +15,7 @@ import io.openpulsechecker.persistence.StatusPageEntity;
 import io.openpulsechecker.persistence.StatusPageMonitorEntity;
 import io.openpulsechecker.persistence.StatusPageMonitorRepository;
 import io.openpulsechecker.persistence.StatusPageRepository;
+import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -23,7 +24,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,6 +73,29 @@ public class StatusPageService {
     @Transactional(readOnly = true)
     public List<StatusPageResponse> list() {
         return statusPageRepository.findAll().stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<StatusPageResponse> listPage(String q, Boolean isPublic, Pageable pageable) {
+        Specification<StatusPageEntity> spec = (root, query, cb) -> {
+            Predicate predicate = cb.conjunction();
+            if (isPublic != null) {
+                predicate = cb.and(predicate, cb.equal(root.get("isPublic"), isPublic));
+            }
+            String normalizedQ = normalizeQuery(q);
+            if (normalizedQ != null) {
+                String like = "%" + normalizedQ.toLowerCase() + "%";
+                predicate = cb.and(predicate, cb.or(
+                        cb.like(cb.lower(root.get("name")), like),
+                        cb.like(cb.lower(root.get("slug")), like)
+                ));
+            }
+            return predicate;
+        };
+
+        Page<StatusPageEntity> page = statusPageRepository.findAll(spec, pageable);
+        List<StatusPageResponse> items = page.getContent().stream().map(this::toResponse).toList();
+        return new PageImpl<>(items, pageable, page.getTotalElements());
     }
 
     @Transactional
@@ -193,6 +221,12 @@ public class StatusPageService {
     private StatusPageEntity getPage(UUID id) {
         return statusPageRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Status page not found: " + id));
+    }
+
+    private String normalizeQuery(String q) {
+        if (q == null) return null;
+        String trimmed = q.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private StatusPageResponse toResponse(StatusPageEntity page) {

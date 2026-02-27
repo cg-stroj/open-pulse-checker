@@ -170,4 +170,33 @@ class StatusPageApiIntegrationTest {
                         .with(httpBasic("viewer", "viewer-change-me")))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void statusPageListSupportsPagingFilteringAndSorting() throws Exception {
+        statusPageRepository.deleteAll();
+
+        StatusPageEntity publicPage = new StatusPageEntity();
+        publicPage.setName("Main Status");
+        publicPage.setSlug("ops-main-status");
+        publicPage.setPublic(true);
+        statusPageRepository.save(publicPage);
+
+        StatusPageEntity privatePage = new StatusPageEntity();
+        privatePage.setName("Internal Status");
+        privatePage.setSlug("internal-status");
+        privatePage.setPublic(false);
+        statusPageRepository.save(privatePage);
+
+        mockMvc.perform(get("/api/v1/status-pages")
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .param("paged", "true")
+                        .param("size", "1")
+                        .param("isPublic", "true")
+                        .param("q", "main")
+                        .param("sortBy", "name")
+                        .param("sortDir", "asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].slug").value("ops-main-status"));
+    }
 }

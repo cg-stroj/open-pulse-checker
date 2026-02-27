@@ -4,15 +4,21 @@ import io.openpulsechecker.api.CreateMonitorRequest;
 import io.openpulsechecker.api.MonitorResponse;
 import io.openpulsechecker.api.UpdateMonitorRequest;
 import io.openpulsechecker.audit.AuditService;
+import io.openpulsechecker.domain.MonitorType;
 import io.openpulsechecker.persistence.CheckResultEntity;
 import io.openpulsechecker.persistence.CheckResultRepository;
 import io.openpulsechecker.persistence.MonitorEntity;
 import io.openpulsechecker.persistence.MonitorRepository;
+import jakarta.persistence.criteria.Predicate;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,15 +57,33 @@ public class MonitorService {
     @Transactional(readOnly = true)
     public List<MonitorResponse> listAll() {
         List<MonitorEntity> monitors = monitorRepository.findAll();
-        if (monitors.isEmpty()) return List.of();
+        return mapResponses(monitors);
+    }
 
-        List<UUID> ids = monitors.stream().map(MonitorEntity::getId).toList();
-        Map<UUID, CheckResultEntity> latestByMonitor = new HashMap<>();
-        for (CheckResultEntity check : checkResultRepository.findLatestForMonitorIds(ids)) {
-            latestByMonitor.put(check.getMonitorId(), check);
-        }
+    @Transactional(readOnly = true)
+    public Page<MonitorResponse> listPage(String q, Boolean enabled, MonitorType type, Pageable pageable) {
+        Specification<MonitorEntity> spec = (root, query, cb) -> {
+            Predicate predicate = cb.conjunction();
+            if (enabled != null) {
+                predicate = cb.and(predicate, cb.equal(root.get("enabled"), enabled));
+            }
+            if (type != null) {
+                predicate = cb.and(predicate, cb.equal(root.get("type"), type));
+            }
+            String normalizedQ = normalizeQuery(q);
+            if (normalizedQ != null) {
+                String like = "%" + normalizedQ.toLowerCase() + "%";
+                predicate = cb.and(predicate, cb.or(
+                        cb.like(cb.lower(root.get("name")), like),
+                        cb.like(cb.lower(root.get("targetUrl")), like)
+                ));
+            }
+            return predicate;
+        };
 
-        return monitors.stream().map(monitor -> toResponse(monitor, latestByMonitor.get(monitor.getId()))).toList();
+        Page<MonitorEntity> page = monitorRepository.findAll(spec, pageable);
+        List<MonitorResponse> items = mapResponses(page.getContent());
+        return new PageImpl<>(items, pageable, page.getTotalElements());
     }
 
     @Transactional(readOnly = true)
@@ -112,6 +136,29 @@ public class MonitorService {
         if (uri.getHost() == null || uri.getHost().isBlank()) {
             throw new IllegalArgumentException("Target URL host is required.");
         }
+    }
+
+    private List<MonitorResponse> mapResponses(List<MonitorEntity> monitors) {
+        if (monitors.isEmpty()) return List.of();
+
+        List<UUID> ids = monitors.stream().map(MonitorEntity::getId).toList();
+        Map<UUID, CheckResultEntity> latestByMonitor = new HashMap<>();
+        for (CheckResultEntity check : checkResultRepository.findLatestForMonitorIds(ids)) {
+            latestByMonitor.put(check.getMonitorId(), check);
+        }
+
+        return monitors.stream().map(monitor -> toResponse(monitor, latestByMonitor.get(monitor.getId()))).toList();
+    }
+
+    private MonitorResponse toResponseWithLatestCheck(MonitorEntity entity) {
+        CheckResultEntity latest = checkResultRepository.findTopByMonitorIdOrderByCheckedAtDesc(entity.getId()).orElse(null);
+        return toResponse(entity, latest);
+    }
+
+    private String normalizeQuery(String q) {
+        if (q == null) return null;
+        String trimmed = q.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private MonitorResponse toResponse(MonitorEntity entity, CheckResultEntity latestCheck) {

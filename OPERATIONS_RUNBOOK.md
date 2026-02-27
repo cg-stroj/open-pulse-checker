@@ -56,6 +56,19 @@ Local fallback (when Docker is unavailable):
 - `ANNOTATE`: transitions continue, but incident/alert reason text includes maintenance context.
 - Recovery (`UP`) continues to resolve existing incidents, including during maintenance, to keep lifecycle deterministic.
 
+## Ops API list querying (Ticket #43)
+For larger operational datasets, list endpoints support DB-backed paging/filtering/sorting.
+
+Examples:
+- `GET /api/v1/monitors?paged=true&page=0&size=50&sortBy=updatedAt&sortDir=desc&enabled=true&q=api`
+- `GET /api/v1/admin/incidents?paged=true&page=0&size=50&sortBy=openedAt&sortDir=desc&state=OPEN`
+- `GET /api/v1/status-pages?paged=true&page=0&size=50&sortBy=name&sortDir=asc&isPublic=true`
+
+Behavior:
+- Default (`paged=false`) keeps legacy array responses for backward compatibility.
+- `paged=true` returns metadata: `items`, `page`, `size`, `total`, `totalPages`, `hasNext`, `hasPrevious`.
+- Guardrails: negative page coerced to `0`; invalid/non-positive size defaults to `25`; max size `200`.
+
 ## Incident manual lifecycle operations (Ticket #42)
 
 Admin endpoints:

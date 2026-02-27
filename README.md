@@ -15,6 +15,19 @@ Open Pulse Checker is a security-first, self-host-first OSS monitoring platform.
 - Includes: backend tests, frontend lint/build/smoke, migration verification, backup/restore sanity, security checks, changelog/release notes, tag cut, and rollback validation.
 - EPIC #48 (Frontend v1) closure evidence is tracked in the same checklist.
 
+## Phase 2.4 delivered (ops list scalability: paging/filtering/sorting)
+- Enhanced list endpoints (backward compatible):
+  - `GET /api/v1/monitors`
+  - `GET /api/v1/admin/incidents`
+  - `GET /api/v1/status-pages`
+- Additive query params:
+  - `paged` (`true|false`, default `false` for legacy array response)
+  - `page` (default `0`), `size` (default `25`, max `200`)
+  - `sortBy`, `sortDir` (`asc|desc`)
+  - endpoint-specific filters (`q`, plus resource fields like `enabled`, `type`, `state`, `monitorId`, `isPublic`)
+- When `paged=true`, response shape includes metadata:
+  - `items`, `page`, `size`, `total`, `totalPages`, `hasNext`, `hasPrevious`
+
 ## Phase 2.3 delivered (audit explorer + export UX)
 - ADMIN audit API:
   - `GET /api/v1/admin/audit-events` (search/filter + pagination)

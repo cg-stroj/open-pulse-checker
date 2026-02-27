@@ -163,4 +163,29 @@ class AdminIncidentApiIntegrationTest {
                 .andExpect(jsonPath("$[2].action").value("REOPENED"))
                 .andExpect(jsonPath("$[3].action").value("ANNOTATION_ADDED"));
     }
+
+    @Test
+    void incidentListSupportsPagingFilteringAndDefaults() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/incidents")
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .param("paged", "true")
+                        .param("page", "0")
+                        .param("size", "1")
+                        .param("state", "OPEN")
+                        .param("q", "HTTP")
+                        .param("sortBy", "openedAt")
+                        .param("sortDir", "desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(incidentId.toString()));
+
+        mockMvc.perform(get("/api/v1/admin/incidents")
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .param("paged", "true")
+                        .param("size", "0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size").value(25));
+    }
 }
