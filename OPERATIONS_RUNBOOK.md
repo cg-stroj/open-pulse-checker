@@ -133,10 +133,46 @@ Validation failures return `400`; wrong role returns `403`; unauthenticated retu
 3. Verify retry settings (`max-attempts`, `initial-backoff-ms`) and upstream rate limits.
 4. After mitigation, verify p95 trend returns below 120s.
 
+## Release cut process (v2.1 gate)
+1. Ensure local main is current and clean:
+   ```bash
+   git checkout main
+   git pull --ff-only origin main
+   ```
+2. Run mandatory verification gates:
+   ```bash
+   mvn test
+   cd frontend && npm run lint && npm run build && npm run test:e2e:smoke
+   cd ..
+   ```
+3. Take pre-deploy DB backup:
+   ```bash
+   pg_dump --format=custom --file=openpulse-predeploy-$(date +%F-%H%M%S).dump "$OPENPULSE_DB_URL"
+   ```
+4. Prepare release notes from `.github/release-template.md` and update `CHANGELOG.md`.
+5. Create and push annotated tag:
+   ```bash
+   VERSION=v2.1.0
+   git tag -a "$VERSION" -m "Open Pulse Checker $VERSION"
+   git push origin main
+   git push origin "$VERSION"
+   ```
+6. Deploy tag/artifact with your environment's standard deploy path.
+7. Post-deploy verification:
+   ```bash
+   curl -fsS http://localhost:8080/actuator/health
+   curl -fsS http://localhost:8080/actuator/info
+   ```
+
 ## Rollback guidance (failed migration/deploy)
 1. Stop newly deployed app version.
 2. Inspect Flyway history table and app logs to determine if migration partially applied.
 3. If migration failed after changing schema/data, restore from predeploy backup.
-4. Redeploy last known good app version.
-5. Run smoke checks and compare monitor/check counts with predeploy baselines.
+4. Redeploy last known good app version/tag.
+5. Run smoke checks and compare monitor/check counts with predeploy baselines:
+   ```bash
+   curl -fsS http://localhost:8080/actuator/health
+   curl -fsS http://localhost:8080/api/v1/health
+   cd frontend && npm run test:e2e:smoke
+   ```
 6. Open postmortem issue with migration ID, failure mode, and remediation.

@@ -10,6 +10,11 @@ Open Pulse Checker is a security-first, self-host-first OSS monitoring platform.
   - `cd frontend && npm run test:e2e:smoke`
 - Known limitation: smoke tests are API-mocked UI smoke (deterministic FE gate), not full backend integration tests.
 
+## Release readiness gate (ticket #46, v2.1)
+- Canonical release gate checklist: `docs/v2.1-release-readiness-checklist.md`
+- Includes: backend tests, frontend lint/build/smoke, migration verification, backup/restore sanity, security checks, changelog/release notes, tag cut, and rollback validation.
+- EPIC #48 (Frontend v1) closure evidence is tracked in the same checklist.
+
 ## Phase 2.3 delivered (audit explorer + export UX)
 - ADMIN audit API:
   - `GET /api/v1/admin/audit-events` (search/filter + pagination)
