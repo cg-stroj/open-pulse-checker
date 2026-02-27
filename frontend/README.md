@@ -43,6 +43,13 @@ Default frontend URL: `http://localhost:5173`
   - state-transition guardrails with disabled action hints
   - annotation form with UX validation
   - best-effort manual audit/event history from `/api/v1/admin/incidents/{id}/events`
+- Maintenance Windows (`/maintenance-windows`):
+  - admin CRUD against `/api/v1/admin/maintenance-windows`
+  - scope selector (`GLOBAL` / `MONITOR`) with monitor binding
+  - type selector (`ONE_TIME` / `RECURRING`) with type-specific fields
+  - policy selector (`SUPPRESS` / `ANNOTATE`) and enabled toggle
+  - inline validation for required fields and time/day constraints
+  - active-window summary preview (best-effort)
 - UI primitives:
   - `Button`, `Badge`
   - `DataTable`

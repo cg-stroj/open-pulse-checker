@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '../components/layout/AppShell'
 import { DashboardPage } from '../pages/DashboardPage'
 import { IncidentsPage } from '../pages/IncidentsPage'
+import { MaintenanceWindowsPage } from '../pages/MaintenanceWindowsPage'
 import { MonitorsPage } from '../pages/MonitorsPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { SettingsPage } from '../pages/SettingsPage'
@@ -17,6 +18,7 @@ export function AppRouter() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/monitors" element={<MonitorsPage />} />
           <Route path="/incidents" element={<IncidentsPage />} />
+          <Route path="/maintenance-windows" element={<MaintenanceWindowsPage />} />
           <Route path="/status-pages" element={<StatusPagesPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
