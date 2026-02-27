@@ -84,23 +84,23 @@ test('navigation smoke across major routes', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Incidents Console' })).toBeVisible()
 
   await page.getByRole('link', { name: 'Maintenance Windows' }).click()
-  await expect(page.getByRole('heading', { name: 'Maintenance Windows' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Maintenance Windows', exact: true })).toBeVisible()
 
   await page.getByRole('link', { name: 'Notification Policies' }).click()
-  await expect(page.getByRole('heading', { name: 'Notification Policies' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Notification Policies', exact: true })).toBeVisible()
 
   await page.getByRole('link', { name: 'Status Pages' }).click()
-  await expect(page.getByRole('heading', { name: 'Status Pages' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Status Pages', exact: true })).toBeVisible()
 
   await page.getByRole('link', { name: 'Audit Explorer' }).click()
-  await expect(page.getByRole('heading', { name: 'Audit Explorer' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Audit Explorer', exact: true })).toBeVisible()
 })
 
 test('key action flow smoke: create status page', async ({ page }) => {
   await page.goto('/status-pages')
 
   await page.getByLabel('Page name').fill('Prod Ops')
-  await page.getByLabel('Slug').fill('prod-ops')
+  await page.getByLabel('Slug', { exact: true }).fill('prod-ops')
   await page.getByRole('button', { name: 'Create page' }).click()
 
   await expect(page.getByText('Status page created.')).toBeVisible()
