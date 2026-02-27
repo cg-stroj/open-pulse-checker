@@ -31,11 +31,18 @@ Default frontend URL: `http://localhost:5173`
 ## Environment
 - `VITE_API_BASE_URL` (default fallback in code: `http://localhost:8080/api/v1`)
 
-## Baseline modules delivered
+## Delivered modules
 - App shell (`sidebar`, `topbar`, `content area`)
-- Route placeholders (`/dashboard`, `/monitors`, `/incidents`, `/status-pages`, `/settings`)
 - Global providers (query client + router + toaster)
 - Error boundary + global query-fetching top indicator
+- Dashboard primitives playground
+- Incidents Console (`/incidents`):
+  - incident list + detail/timeline view
+  - search/filter/sort baseline
+  - admin lifecycle actions (`acknowledge`, `annotate`, `resolve`, `reopen`)
+  - state-transition guardrails with disabled action hints
+  - annotation form with UX validation
+  - best-effort manual audit/event history from `/api/v1/admin/incidents/{id}/events`
 - UI primitives:
   - `Button`, `Badge`
   - `DataTable`

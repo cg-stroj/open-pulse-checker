@@ -1,9 +1,12 @@
 package io.openpulsechecker.api.admin;
 
+import io.openpulsechecker.incident.AdminIncidentQueryService;
 import io.openpulsechecker.incident.IncidentAdminService;
 import io.openpulsechecker.persistence.IncidentEntity;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,9 +18,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminIncidentController {
 
     private final IncidentAdminService incidentAdminService;
+    private final AdminIncidentQueryService adminIncidentQueryService;
 
-    public AdminIncidentController(IncidentAdminService incidentAdminService) {
+    public AdminIncidentController(IncidentAdminService incidentAdminService,
+                                   AdminIncidentQueryService adminIncidentQueryService) {
         this.incidentAdminService = incidentAdminService;
+        this.adminIncidentQueryService = adminIncidentQueryService;
+    }
+
+    @GetMapping
+    public List<AdminIncidentListItemResponse> list() {
+        return adminIncidentQueryService.listIncidents();
+    }
+
+    @GetMapping("/{incidentId}/events")
+    public List<AdminIncidentEventResponse> events(@PathVariable UUID incidentId) {
+        return adminIncidentQueryService.listEvents(incidentId);
     }
 
     @PostMapping("/{incidentId}/acknowledge")

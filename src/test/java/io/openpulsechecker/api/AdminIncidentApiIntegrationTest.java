@@ -1,16 +1,17 @@
 package io.openpulsechecker.api;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.openpulsechecker.audit.AuditEventEntity;
+import io.openpulsechecker.audit.AuditEventRepository;
 import io.openpulsechecker.auth.AppUserEntity;
 import io.openpulsechecker.auth.AppUserRepository;
 import io.openpulsechecker.auth.UserRoleEntity;
 import io.openpulsechecker.auth.UserRoleRepository;
-import io.openpulsechecker.audit.AuditEventEntity;
-import io.openpulsechecker.audit.AuditEventRepository;
 import io.openpulsechecker.domain.IncidentState;
 import io.openpulsechecker.domain.MonitorType;
 import io.openpulsechecker.incident.IncidentManualAction;
@@ -23,6 +24,7 @@ import io.openpulsechecker.persistence.MonitorEntity;
 import io.openpulsechecker.persistence.MonitorRepository;
 import java.time.Instant;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -98,6 +100,15 @@ class AdminIncidentApiIntegrationTest {
                 "\"reason\":\"on call acknowledged\"" +
                 "}";
 
+        mockMvc.perform(get("/api/v1/admin/incidents"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/admin/incidents")
+                        .with(httpBasic("admin", "admin-change-me")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(incidentId.toString()))
+                .andExpect(jsonPath("$[0].monitorName").value("api"));
+
         mockMvc.perform(post("/api/v1/admin/incidents/{id}/acknowledge", incidentId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
@@ -117,12 +128,12 @@ class AdminIncidentApiIntegrationTest {
                 .andExpect(jsonPath("$.state").value("ACKNOWLEDGED"));
 
         IncidentManualEventEntity event = incidentManualEventRepository.findByIncidentIdOrderByOccurredAtAsc(incidentId).getFirst();
-        org.junit.jupiter.api.Assertions.assertEquals(IncidentManualAction.ACKNOWLEDGED, event.getAction());
-        org.junit.jupiter.api.Assertions.assertEquals("admin", event.getActor());
+        Assertions.assertEquals(IncidentManualAction.ACKNOWLEDGED, event.getAction());
+        Assertions.assertEquals("admin", event.getActor());
 
         AuditEventEntity audit = auditEventRepository.findTopByOrderByOccurredAtDesc();
-        org.junit.jupiter.api.Assertions.assertEquals("incident.acknowledge", audit.getAction());
-        org.junit.jupiter.api.Assertions.assertEquals("admin", audit.getUsername());
+        Assertions.assertEquals("incident.acknowledge", audit.getAction());
+        Assertions.assertEquals("admin", audit.getUsername());
 
         mockMvc.perform(post("/api/v1/admin/incidents/{id}/resolve", incidentId)
                         .with(httpBasic("admin", "admin-change-me"))
@@ -143,5 +154,13 @@ class AdminIncidentApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\":\"investigation note\"}"))
                 .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/admin/incidents/{id}/events", incidentId)
+                        .with(httpBasic("admin", "admin-change-me")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].action").value("ACKNOWLEDGED"))
+                .andExpect(jsonPath("$[1].action").value("RESOLVED_MANUALLY"))
+                .andExpect(jsonPath("$[2].action").value("REOPENED"))
+                .andExpect(jsonPath("$[3].action").value("ANNOTATION_ADDED"));
     }
 }
