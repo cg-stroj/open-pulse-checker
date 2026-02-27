@@ -8,6 +8,7 @@ const navItems = [
   { to: '/monitors', label: 'Monitors' },
   { to: '/incidents', label: 'Incidents' },
   { to: '/maintenance-windows', label: 'Maintenance Windows' },
+  { to: '/notification-policies', label: 'Notification Policies' },
   { to: '/status-pages', label: 'Status Pages' },
   { to: '/settings', label: 'Settings' },
 ]

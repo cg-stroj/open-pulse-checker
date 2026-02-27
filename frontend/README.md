@@ -50,6 +50,13 @@ Default frontend URL: `http://localhost:5173`
   - policy selector (`SUPPRESS` / `ANNOTATE`) and enabled toggle
   - inline validation for required fields and time/day constraints
   - active-window summary preview (best-effort)
+- Notification Policies (`/notification-policies`):
+  - admin list/create/edit against `/api/v1/admin/notification-policies`
+  - scope selector (`GLOBAL` / `STATUS_PAGE` / `MONITOR`) with scope ref binding
+  - severity route-rule editor (webhook channel toggles)
+  - cooldown + dedup numeric controls with inline validation
+  - ordered escalation-step editor (delay/min severity/channel toggle)
+  - best-effort effective policy summary for selected policy
 - UI primitives:
   - `Button`, `Badge`
   - `DataTable`
