@@ -35,6 +35,18 @@ Open Pulse Checker is a security-first, self-host-first OSS monitoring platform.
 - Baseline filter fields: `q`, `actor`, `action`, `resource`, `outcome`, `fromAt`, `toAt`
 - Frontend module `Audit Explorer` (`/audit-explorer`) for operational troubleshooting with pagination + CSV/JSON export feedback
 
+## Audit API v2 (ticket #44)
+- New additive endpoints:
+  - `GET /api/v2/admin/audit-events`
+  - `GET /api/v2/admin/audit-events/export?format=csv|json`
+- Filter fields (query + export parity): `q`, `actor`, `action`, `resource`, `outcome`, `fromAt`, `toAt`
+- Pagination:
+  - Page mode (default): `page`, `size` (same metadata model as ticket #43)
+  - Cursor mode: `cursorMode=true&size=...&cursor=...` returning `nextCursor` + `hasNext`
+- Export guardrails:
+  - `limit` parameter with defaults and max cap (`5000` max)
+  - unsupported formats return `400`
+
 ## Phase 2.2 delivered (incident manual lifecycle + annotations)
 - ADMIN incident operations:
   - `POST /api/v1/admin/incidents/{id}/acknowledge`

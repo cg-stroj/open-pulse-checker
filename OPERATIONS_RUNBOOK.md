@@ -88,6 +88,20 @@ Operational rules:
 
 Validation failures return `400`; wrong role returns `403`; unauthenticated returns `401`.
 
+## Audit API v2 operations (Ticket #44)
+
+Examples:
+- `GET /api/v2/admin/audit-events?page=0&size=50&actor=admin&action=INCIDENT_RESOLVE&outcome=SUCCESS&fromAt=2026-02-01T00:00:00Z&toAt=2026-02-28T00:00:00Z`
+- `GET /api/v2/admin/audit-events?cursorMode=true&size=100&q=incident&cursor=<nextCursor>`
+- `GET /api/v2/admin/audit-events/export?format=csv&limit=2000&actor=admin`
+- `GET /api/v2/admin/audit-events/export?format=json&q=AUTH_LOGIN&outcome=FAILURE`
+
+Behavior:
+- API is additive (`/api/v1/admin/audit-events` remains unchanged for compatibility).
+- Query/export filters are parity-aligned to avoid mismatched export sets.
+- Export limit defaults to `1000` and is capped at `5000` rows for operational safety.
+- Cursor mode is keyset-style based on `occurredAt` descending for efficient deep pagination.
+
 ## Multi-node observability (Ticket #45)
 
 ### SLO-aligned thresholds
