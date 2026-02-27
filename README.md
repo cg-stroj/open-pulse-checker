@@ -130,24 +130,73 @@ curl http://localhost:8080/api/v1/public/status-pages/main-status
 - Guarded bootstrap admin initializer (`openpulse.security.bootstrap-admin.*`)
 - Persistent audit logging (`audit_events`) for auth and write/check-trigger actions
 
-## Quick start
-### Prereqs
-- Java 21
-- Maven 3.9+
+## 5-minute quickstart (clean machine)
 
-### Tests
+### 1) Clone
 ```bash
-mvn test
+git clone https://github.com/<your-org>/open-pulse-checker.git
+cd open-pulse-checker
 ```
 
-### Run
+### 2) One-command install
+
+Linux/macOS:
+```bash
+./scripts/install.sh
+```
+
+Windows (PowerShell):
+```powershell
+./scripts/install.ps1
+```
+
+Installer behavior:
+- runs preflight checks with clear failures/warnings
+- bootstraps `.env` and `frontend/.env` from templates
+- prefers Docker setup; falls back to local dependency install when Docker is unavailable
+
+### 3) One-command run (backend + frontend + db)
+
+Linux/macOS:
+```bash
+./scripts/run.sh start
+```
+
+Windows (PowerShell):
+```powershell
+./scripts/run.ps1 start
+```
+
+Default mode is `auto`:
+- Docker available -> starts full stack via `docker-compose.full.yml` (`postgres + backend + frontend`)
+- Docker unavailable -> starts scripted local fallback (`backend + frontend`, backend uses embedded H2)
+
+### 4) Verify health
+```bash
+./scripts/run.sh health
+```
+
+Checks include:
+- DB readiness (`pg_isready`) in Docker mode
+- API reachability (`http://localhost:8080/api/v1/health`)
+- frontend reachability (`http://localhost:5173`)
+
+### 5) Control & troubleshooting
+```bash
+./scripts/run.sh status
+./scripts/run.sh logs
+./scripts/run.sh restart
+./scripts/run.sh stop
+```
+
+## Legacy/manual run modes (backward compatibility)
+
+### Backend-only dev
 ```bash
 mvn spring-boot:run
 ```
 
-## Frontend foundation (ticket #49)
-A React + TypeScript + Vite frontend baseline is available in `frontend/`.
-
+### Frontend-only dev
 ```bash
 cd frontend
 cp .env.example .env
@@ -159,7 +208,7 @@ npm run dev
 - API default (configurable): `http://localhost:8080/api/v1`
 - See `frontend/README.md` for architecture and component baseline details.
 
-### Production profile (PostgreSQL)
+### Production profile (manual PostgreSQL wiring)
 ```bash
 export SPRING_PROFILES_ACTIVE=prod
 export OPENPULSE_DB_URL='jdbc:postgresql://postgres:5432/openpulse'
@@ -170,7 +219,7 @@ mvn spring-boot:run
 - Never commit DB credentials.
 - Inject secrets via environment variables or secret manager.
 - Flyway runs on startup in prod with validation enabled and clean disabled.
-- Containerized prod startup: `docker compose -f docker-compose.prod.yml up -d`.
+- Existing prod compose path remains available: `docker compose -f docker-compose.prod.yml up -d`.
 
 ## Bootstrap admin (required for fresh DB)
 Enable one-time admin bootstrap via env/config:

@@ -1,5 +1,27 @@
 # Operations Runbook
 
+## One-command stack operations (Ticket #59)
+
+Primary full-stack path (Docker):
+```bash
+./scripts/install.sh
+./scripts/run.sh start
+./scripts/run.sh health
+```
+
+Control helpers:
+```bash
+./scripts/run.sh status
+./scripts/run.sh logs
+./scripts/run.sh restart
+./scripts/run.sh stop
+```
+
+Local fallback (when Docker is unavailable):
+- `./scripts/run.sh start local`
+- Starts backend + frontend with embedded H2 database.
+- Keeps legacy manual run modes available (`mvn spring-boot:run`, `npm run dev`).
+
 ## Backup before deploy/migration
 1. Put deployment in maintenance window.
 2. Verify target image/tag and migration scripts to be applied.
