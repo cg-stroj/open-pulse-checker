@@ -17,6 +17,7 @@ import io.openpulsechecker.maintenance.MaintenanceWindowService;
 import io.openpulsechecker.persistence.IncidentEntity;
 import io.openpulsechecker.persistence.IncidentRepository;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -45,7 +46,7 @@ class IncidentServiceTest {
         UUID incidentId = UUID.randomUUID();
         Instant checkedAt = Instant.now();
         when(maintenanceWindowService.evaluate(monitorId, checkedAt)).thenReturn(MaintenanceEvaluation.inactive());
-        when(incidentRepository.findTopByMonitorIdAndStateOrderByOpenedAtDesc(monitorId, IncidentState.OPEN))
+        when(incidentRepository.findTopByMonitorIdAndStateInOrderByOpenedAtDesc(monitorId, EnumSet.of(IncidentState.OPEN, IncidentState.ACKNOWLEDGED)))
                 .thenReturn(Optional.empty());
         when(incidentRepository.save(any(IncidentEntity.class))).thenAnswer(inv -> {
             IncidentEntity incident = inv.getArgument(0);
@@ -80,7 +81,7 @@ class IncidentServiceTest {
         existing.setReason("timeout");
 
         when(maintenanceWindowService.evaluate(monitorId, checkedAt)).thenReturn(MaintenanceEvaluation.inactive());
-        when(incidentRepository.findTopByMonitorIdAndStateOrderByOpenedAtDesc(monitorId, IncidentState.OPEN))
+        when(incidentRepository.findTopByMonitorIdAndStateInOrderByOpenedAtDesc(monitorId, EnumSet.of(IncidentState.OPEN, IncidentState.ACKNOWLEDGED)))
                 .thenReturn(Optional.of(existing));
         when(incidentRepository.save(existing)).thenReturn(existing);
 
@@ -96,6 +97,29 @@ class IncidentServiceTest {
     }
 
     @Test
+    void resolvesAcknowledgedIncidentWhenRecovered() {
+        UUID monitorId = UUID.randomUUID();
+        Instant checkedAt = Instant.now();
+        IncidentEntity existing = new IncidentEntity();
+        existing.setId(UUID.randomUUID());
+        existing.setMonitorId(monitorId);
+        existing.setState(IncidentState.ACKNOWLEDGED);
+        existing.setOpenedAt(checkedAt.minusSeconds(30));
+        existing.setReason("timeout");
+
+        when(maintenanceWindowService.evaluate(monitorId, checkedAt)).thenReturn(MaintenanceEvaluation.inactive());
+        when(incidentRepository.findTopByMonitorIdAndStateInOrderByOpenedAtDesc(monitorId, EnumSet.of(IncidentState.OPEN, IncidentState.ACKNOWLEDGED)))
+                .thenReturn(Optional.of(existing));
+        when(incidentRepository.save(existing)).thenReturn(existing);
+
+        incidentService.applyTransition(monitorId, CheckStatus.UP, checkedAt, null);
+
+        verify(incidentRepository).save(existing);
+        assertEquals(IncidentState.RESOLVED, existing.getState());
+        assertEquals(checkedAt, existing.getResolvedAt());
+    }
+
+    @Test
     void doesNothingWhenDownAndIncidentAlreadyOpen() {
         UUID monitorId = UUID.randomUUID();
         IncidentEntity existing = new IncidentEntity();
@@ -103,7 +127,7 @@ class IncidentServiceTest {
 
         Instant checkedAt = Instant.now();
         when(maintenanceWindowService.evaluate(monitorId, checkedAt)).thenReturn(MaintenanceEvaluation.inactive());
-        when(incidentRepository.findTopByMonitorIdAndStateOrderByOpenedAtDesc(monitorId, IncidentState.OPEN))
+        when(incidentRepository.findTopByMonitorIdAndStateInOrderByOpenedAtDesc(monitorId, EnumSet.of(IncidentState.OPEN, IncidentState.ACKNOWLEDGED)))
                 .thenReturn(Optional.of(existing));
 
         incidentService.applyTransition(monitorId, CheckStatus.DOWN, checkedAt, "still down");
@@ -118,7 +142,7 @@ class IncidentServiceTest {
         Instant checkedAt = Instant.now();
         when(maintenanceWindowService.evaluate(monitorId, checkedAt)).thenReturn(
                 new MaintenanceEvaluation(true, MaintenancePolicy.SUPPRESS, UUID.randomUUID(), "patch", "Maintenance active"));
-        when(incidentRepository.findTopByMonitorIdAndStateOrderByOpenedAtDesc(monitorId, IncidentState.OPEN))
+        when(incidentRepository.findTopByMonitorIdAndStateInOrderByOpenedAtDesc(monitorId, EnumSet.of(IncidentState.OPEN, IncidentState.ACKNOWLEDGED)))
                 .thenReturn(Optional.empty());
 
         incidentService.applyTransition(monitorId, CheckStatus.DOWN, checkedAt, "HTTP 503");
@@ -133,7 +157,7 @@ class IncidentServiceTest {
         Instant checkedAt = Instant.now();
         when(maintenanceWindowService.evaluate(monitorId, checkedAt)).thenReturn(
                 new MaintenanceEvaluation(true, MaintenancePolicy.ANNOTATE, UUID.randomUUID(), "deploy", "Maintenance window active: deploy (ANNOTATE)"));
-        when(incidentRepository.findTopByMonitorIdAndStateOrderByOpenedAtDesc(monitorId, IncidentState.OPEN))
+        when(incidentRepository.findTopByMonitorIdAndStateInOrderByOpenedAtDesc(monitorId, EnumSet.of(IncidentState.OPEN, IncidentState.ACKNOWLEDGED)))
                 .thenReturn(Optional.empty());
         when(incidentRepository.save(any(IncidentEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -144,4 +168,3 @@ class IncidentServiceTest {
         assertEquals("HTTP 503 | Maintenance window active: deploy (ANNOTATE)", captor.getValue().getReason());
     }
 }
-

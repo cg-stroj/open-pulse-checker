@@ -12,5 +12,7 @@ public interface IncidentRepository extends JpaRepository<IncidentEntity, UUID> 
 
     Optional<IncidentEntity> findTopByMonitorIdAndStateOrderByOpenedAtDesc(UUID monitorId, IncidentState state);
 
+    Optional<IncidentEntity> findTopByMonitorIdAndStateInOrderByOpenedAtDesc(UUID monitorId, Collection<IncidentState> states);
+
     List<IncidentEntity> findByMonitorIdInOrderByOpenedAtDesc(Collection<UUID> monitorIds, Pageable pageable);
 }

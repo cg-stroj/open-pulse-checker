@@ -34,6 +34,25 @@
 - `ANNOTATE`: transitions continue, but incident/alert reason text includes maintenance context.
 - Recovery (`UP`) continues to resolve existing incidents, including during maintenance, to keep lifecycle deterministic.
 
+## Incident manual lifecycle operations (Ticket #42)
+
+Admin endpoints:
+- `POST /api/v1/admin/incidents/{id}/acknowledge`
+- `POST /api/v1/admin/incidents/{id}/annotations`
+- `POST /api/v1/admin/incidents/{id}/resolve`
+- `POST /api/v1/admin/incidents/{id}/reopen`
+
+Operational rules:
+- `OPEN -> ACKNOWLEDGED` (manual acknowledge)
+- `OPEN|ACKNOWLEDGED -> RESOLVED` (manual resolve)
+- `RESOLVED -> OPEN` (manual reopen)
+- Annotation does not change state.
+- All manual actions require a non-blank reason and are written to:
+  - `incident_manual_events` (domain trail)
+  - `audit_events` (security/audit trail)
+
+Validation failures return `400`; wrong role returns `403`; unauthenticated returns `401`.
+
 ## Multi-node observability (Ticket #45)
 
 ### SLO-aligned thresholds

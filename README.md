@@ -2,6 +2,20 @@
 
 Open Pulse Checker is a security-first, self-host-first OSS monitoring platform.
 
+## Phase 2.2 delivered (incident manual lifecycle + annotations)
+- ADMIN incident operations:
+  - `POST /api/v1/admin/incidents/{id}/acknowledge`
+  - `POST /api/v1/admin/incidents/{id}/annotations`
+  - `POST /api/v1/admin/incidents/{id}/resolve`
+  - `POST /api/v1/admin/incidents/{id}/reopen`
+- Manual lifecycle state includes `ACKNOWLEDGED` (between `OPEN` and `RESOLVED`)
+- Automatic lifecycle remains backward compatible:
+  - DOWN opens incident only when no active (`OPEN`/`ACKNOWLEDGED`) incident exists
+  - UP resolves active (`OPEN`/`ACKNOWLEDGED`) incidents
+- Manual operation persistence:
+  - `incident_manual_events` stores actor, action, reason, from/to states, timestamp
+  - `audit_events` records admin write action trail for each manual operation
+
 ## Phase 2.1 delivered (notification policy + maintenance windows)
 - Policy scopes: `GLOBAL`, `MONITOR`, `STATUS_PAGE` with override precedence monitor > status page > global
 - Severity-aware route rules (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO`)

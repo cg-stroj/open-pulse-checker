@@ -11,11 +11,14 @@ import io.openpulsechecker.maintenance.MaintenanceWindowService;
 import io.openpulsechecker.persistence.IncidentEntity;
 import io.openpulsechecker.persistence.IncidentRepository;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
 public class IncidentService {
+
+    private static final EnumSet<IncidentState> ACTIVE_STATES = EnumSet.of(IncidentState.OPEN, IncidentState.ACKNOWLEDGED);
 
     private final IncidentRepository incidentRepository;
     private final AlertDispatchService alertDispatchService;
@@ -31,9 +34,9 @@ public class IncidentService {
 
     public void applyTransition(UUID monitorId, CheckStatus checkStatus, Instant checkedAt, String reason) {
         MaintenanceEvaluation maintenance = maintenanceWindowService.evaluate(monitorId, checkedAt);
-        var openIncident = incidentRepository.findTopByMonitorIdAndStateOrderByOpenedAtDesc(monitorId, IncidentState.OPEN);
+        var activeIncident = incidentRepository.findTopByMonitorIdAndStateInOrderByOpenedAtDesc(monitorId, ACTIVE_STATES);
 
-        if (checkStatus == CheckStatus.DOWN && openIncident.isEmpty()) {
+        if (checkStatus == CheckStatus.DOWN && activeIncident.isEmpty()) {
             if (maintenance.active() && maintenance.policy() == MaintenancePolicy.SUPPRESS) {
                 return;
             }
@@ -53,8 +56,8 @@ public class IncidentService {
             return;
         }
 
-        if (checkStatus == CheckStatus.UP && openIncident.isPresent()) {
-            IncidentEntity incident = openIncident.get();
+        if (checkStatus == CheckStatus.UP && activeIncident.isPresent()) {
+            IncidentEntity incident = activeIncident.get();
             incident.setState(IncidentState.RESOLVED);
             incident.setResolvedAt(checkedAt);
             IncidentEntity saved = incidentRepository.save(incident);

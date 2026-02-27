@@ -46,7 +46,14 @@
 - [x] ADMIN CRUD API for maintenance windows
 - [x] Flyway migration for maintenance window persistence
 
+## Phase 2.2 delivered
+- [x] Admin-secured manual incident lifecycle operations (acknowledge/resolve/reopen)
+- [x] Incident annotations/comments via admin API
+- [x] Manual incident event persistence with actor/action/reason/from-to-state/timestamp
+- [x] Audit logging for every manual incident operation
+- [x] Unit + integration authz coverage for manual incident APIs
+
 ## Next
-- incident annotations / manual incident updates
 - paging/filtering and richer audit querying
+- incident history read APIs for timeline/detail UIs
 - multi-node operational tooling and metrics (dashboarding/alerts on new lock counters)
