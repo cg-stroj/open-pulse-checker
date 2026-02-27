@@ -3,6 +3,54 @@ import { expect, test, type Page } from '@playwright/test'
 const AUTH_STORAGE_KEY = 'opc.admin.auth'
 
 async function mockApi(page: Page) {
+  await page.route('**/actuator/metrics/**', async (route) => {
+    const url = new URL(route.request().url())
+    const metricName = decodeURIComponent(url.pathname.split('/actuator/metrics/')[1] ?? '')
+    const tags = url.searchParams.getAll('tag')
+    const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
+
+    const responseByMetric: Record<string, { measurements: Array<{ statistic: string; value: number }> }> = {
+      'openpulse.scheduler.lock.acquire.success': { measurements: [{ statistic: 'COUNT', value: 1200 }] },
+      'openpulse.scheduler.lock.acquire.fail': { measurements: [{ statistic: 'COUNT', value: 120 }] },
+      'openpulse.scheduler.lock.acquire.steal': { measurements: [{ statistic: 'COUNT', value: 8 }] },
+      'openpulse.scheduler.lock.renew.fail': { measurements: [{ statistic: 'COUNT', value: 4 }] },
+      'openpulse.scheduler.execution.skip.lock': { measurements: [{ statistic: 'COUNT', value: 50 }] },
+      'openpulse.scheduler.execution.skip.local_inflight': { measurements: [{ statistic: 'COUNT', value: 25 }] },
+      'openpulse.alerts.dlq.backlog': { measurements: [{ statistic: 'VALUE', value: 2 }] },
+      'openpulse.alerts.dlq.oldest.age.seconds': { measurements: [{ statistic: 'VALUE', value: 35 }] },
+      'openpulse.alerts.dispatch.latency': {
+        measurements: [
+          { statistic: 'COUNT', value: 350 },
+          { statistic: 'TOTAL_TIME', value: 490 },
+          { statistic: 'MAX', value: 4.2 },
+        ],
+      },
+      'openpulse.alerts.delivery.delay': {
+        measurements: [
+          { statistic: 'COUNT', value: 350 },
+          { statistic: 'TOTAL_TIME', value: 700 },
+          { statistic: 'MAX', value: 12.5 },
+        ],
+      },
+    }
+
+    if (metricName === 'openpulse.alerts.dispatch.attempts') {
+      if (tags.includes('outcome:success')) {
+        return json({ name: metricName, measurements: [{ statistic: 'COUNT', value: 330 }] })
+      }
+      if (tags.includes('outcome:failed')) {
+        return json({ name: metricName, measurements: [{ statistic: 'COUNT', value: 20 }] })
+      }
+    }
+
+    const metricResponse = responseByMetric[metricName]
+    if (metricResponse) {
+      return json({ name: metricName, ...metricResponse })
+    }
+
+    return json({ name: metricName, measurements: [] })
+  })
+
   await page.route('**/api/v1/**', async (route) => {
     const url = new URL(route.request().url())
     const { pathname } = url
@@ -98,7 +146,7 @@ test('login gate smoke and navigation across major routes', async ({ page }) => 
   await page.getByLabel('Password').fill('admin-change-me')
   await page.getByRole('button', { name: 'Sign in' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Frontend Foundation' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Ops Observability Dashboard' })).toBeVisible()
   await page.getByRole('link', { name: 'Incidents' }).click()
   await expect(page.getByRole('heading', { name: 'Incidents Console' })).toBeVisible()
 

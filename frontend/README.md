@@ -1,6 +1,6 @@
-# Open Pulse Checker Frontend Foundation
+# Open Pulse Checker Frontend
 
-React + TypeScript + Vite foundation for upcoming Open Pulse Checker web UI.
+React + TypeScript + Vite frontend for Open Pulse Checker web UI.
 
 ## Stack
 - React 19 + TypeScript
@@ -47,7 +47,14 @@ Default frontend URL: `http://localhost:5173`
   - global 403 handling: keeps session, shows access toast, redirects to `/unauthorized`
   - session state stored in `sessionStorage` only (tab-scoped, no password persisted directly)
 - Error boundary + global query-fetching top indicator
-- Dashboard primitives playground
+- Ops Observability Dashboard (`/dashboard`):
+  - lock contention (acquire success/fail/steal + renew fail) and contention ratio
+  - scheduler skip telemetry (distributed lock vs local in-flight) with skip-share signal
+  - DLQ backlog and oldest-item age
+  - notifier dispatch success/failure with failure ratio
+  - dispatch and delivery latency (mean + max from actuator timer metrics)
+  - auto-refresh controls (enabled by default, configurable interval, last-updated display)
+  - explicit loading and retryable error state for actuator/metrics failures
 - Incidents Console (`/incidents`):
   - incident list + detail/timeline view
   - search/filter/sort baseline
@@ -100,6 +107,10 @@ Default frontend URL: `http://localhost:5173`
 - E2E smoke:
   - Playwright smoke specs under `e2e/smoke.spec.ts`
   - covers major route navigation + one key admin action flow (status page create)
+
+## Dashboard metrics source
+- Dashboard telemetry reads from backend actuator metrics endpoints (`/actuator/metrics/{name}`) using the current admin Basic session.
+- The frontend derives ratios from the latest cumulative counters/gauges and timer summaries returned by Spring Boot Actuator.
 
 ## Build / quality
 ```bash
