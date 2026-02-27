@@ -19,6 +19,40 @@ Open Pulse Checker is a security-first, self-host-first OSS monitoring platform.
 - Extend multi-node operational tooling and dashboards for lock/queue metrics.
 - Prepare next release checklist and cut the next milestone increment.
 
+## Phase 2.1 delivered (notification policy customization)
+- Policy scopes: `GLOBAL`, `MONITOR`, `STATUS_PAGE` with override precedence monitor > status page > global
+- Severity-aware route rules (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO`)
+- Channel toggles (currently `WEBHOOK`) and ordered escalation-step metadata
+- Cooldown + de-dup suppression integrated in `AlertDispatchService`
+- ADMIN API:
+  - `GET /api/v1/admin/notification-policies`
+  - `GET /api/v1/admin/notification-policies/{id}`
+  - `POST /api/v1/admin/notification-policies`
+  - `PUT /api/v1/admin/notification-policies/{id}`
+- Schema additions: `notification_policies`, `notification_route_rules`, `notification_escalation_steps`, plus dispatch metadata columns on `dispatched_alerts`
+
+### Notification policy create example (ADMIN)
+```bash
+curl -u admin:change-me -X POST http://localhost:8080/api/v1/admin/notification-policies \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "scopeType":"GLOBAL",
+    "enabled":true,
+    "cooldownSeconds":120,
+    "dedupSeconds":60,
+    "routes":[
+      {"severity":"CRITICAL","webhookEnabled":true},
+      {"severity":"HIGH","webhookEnabled":true},
+      {"severity":"MEDIUM","webhookEnabled":true},
+      {"severity":"LOW","webhookEnabled":false},
+      {"severity":"INFO","webhookEnabled":false}
+    ],
+    "escalationSteps":[
+      {"stepOrder":1,"afterSeconds":0,"minSeverity":"CRITICAL","webhookEnabled":true}
+    ]
+  }'
+```
+
 ## Phase 2.0 delivered (status pages + public timeline API)
 - Public status page endpoint: `GET /api/v1/public/status-pages/{slug}`
 - Admin status page management endpoints:

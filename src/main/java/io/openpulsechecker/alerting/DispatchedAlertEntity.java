@@ -24,6 +24,15 @@ public class DispatchedAlertEntity {
     @Column(name = "incident_id")
     private UUID incidentId;
 
+    @Column(name = "severity", length = 16)
+    private String severity;
+
+    @Column(name = "channel", length = 24)
+    private String channel;
+
+    @Column(name = "policy_id")
+    private UUID policyId;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -35,6 +44,12 @@ public class DispatchedAlertEntity {
     public void setMonitorId(UUID monitorId) { this.monitorId = monitorId; }
     public UUID getIncidentId() { return incidentId; }
     public void setIncidentId(UUID incidentId) { this.incidentId = incidentId; }
+    public String getSeverity() { return severity; }
+    public void setSeverity(String severity) { this.severity = severity; }
+    public String getChannel() { return channel; }
+    public void setChannel(String channel) { this.channel = channel; }
+    public UUID getPolicyId() { return policyId; }
+    public void setPolicyId(UUID policyId) { this.policyId = policyId; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

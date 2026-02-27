@@ -23,6 +23,7 @@
 - Flyway runs at startup with `validate-on-migrate=true` and `clean-disabled=true`.
 - Never use Flyway clean in production.
 - Apply schema changes with reviewed SQL migrations committed under `src/main/resources/db/migration`.
+- Phase 2.1 adds `V5__phase2_1_notification_policy.sql`; verify policy scope uniqueness and dispatch metadata indexes post-deploy.
 
 ## Rollback guidance (failed migration/deploy)
 1. Stop newly deployed app version.

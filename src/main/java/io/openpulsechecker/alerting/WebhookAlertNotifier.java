@@ -39,7 +39,12 @@ public class WebhookAlertNotifier implements AlertNotifier {
     }
 
     @Override
-    public void notify(AlertEvent event) {
+    public io.openpulsechecker.notificationpolicy.NotificationChannel channel() {
+        return io.openpulsechecker.notificationpolicy.NotificationChannel.WEBHOOK;
+    }
+
+    @Override
+    public void notify(AlertEvent event, NotificationDispatchPlan plan) {
         String idempotencyKey = buildIdempotencyKey(event);
         if (dispatchedAlertRepository.existsById(idempotencyKey)) {
             return;
@@ -62,6 +67,9 @@ public class WebhookAlertNotifier implements AlertNotifier {
                 saved.setEventType(event.type().name());
                 saved.setMonitorId(event.monitorId());
                 saved.setIncidentId(event.incidentId());
+                saved.setSeverity(plan.severity().name());
+                saved.setChannel(channel().name());
+                saved.setPolicyId(plan.policyId());
                 saved.setCreatedAt(Instant.now(clock));
                 dispatchedAlertRepository.save(saved);
                 meterRegistry.counter("openpulse.alerts.sent").increment();

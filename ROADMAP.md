@@ -34,7 +34,15 @@
 - [x] Status page schema + FK/indexed monitor mapping table
 - [x] Endpoint/security tests for public/private behavior and admin authz
 
+## Phase 2.1 delivered
+- [x] Notification policy customization model (global, per-monitor, per-status-page scopes)
+- [x] Severity routing rules + channel toggles (webhook)
+- [x] Cooldown and de-dup windows enforced in alert dispatch path
+- [x] Escalation step model (ordered, delay/min-severity metadata)
+- [x] ADMIN CRUD API for notification policies
+- [x] Flyway migration for policy persistence + dispatch metadata extensions
+
 ## Next
-- notification policy customization
+- maintenance windows
 - paging/filtering and richer audit querying
 - multi-node operational tooling and metrics (dashboarding/alerts on new lock counters)

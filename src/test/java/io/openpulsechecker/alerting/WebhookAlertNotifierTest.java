@@ -9,9 +9,12 @@ import static org.mockito.Mockito.when;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.openpulsechecker.config.AlertingProperties;
+import io.openpulsechecker.notificationpolicy.NotificationChannel;
+import io.openpulsechecker.notificationpolicy.NotificationSeverity;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.EnumSet;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
@@ -48,7 +51,7 @@ class WebhookAlertNotifierTest {
                 new SimpleMeterRegistry(),
                 Clock.fixed(Instant.parse("2026-02-26T22:00:00Z"), ZoneOffset.UTC));
 
-        notifier.notify(new AlertEvent(AlertEventType.INCIDENT_OPENED, UUID.randomUUID(), UUID.randomUUID(), Instant.now(), "down"));
+        notifier.notify(new AlertEvent(AlertEventType.INCIDENT_OPENED, UUID.randomUUID(), UUID.randomUUID(), Instant.now(), "down"), plan());
 
         verify(responseSpec, times(2)).toBodilessEntity();
         verify(repo).save(any(DispatchedAlertEntity.class));
@@ -82,7 +85,7 @@ class WebhookAlertNotifierTest {
                 new SimpleMeterRegistry(),
                 Clock.systemUTC());
 
-        notifier.notify(new AlertEvent(AlertEventType.INCIDENT_OPENED, UUID.randomUUID(), UUID.randomUUID(), Instant.now(), "down"));
+        notifier.notify(new AlertEvent(AlertEventType.INCIDENT_OPENED, UUID.randomUUID(), UUID.randomUUID(), Instant.now(), "down"), plan());
 
         verify(dlqRepo).save(any(AlertDeadLetterEntity.class));
     }
@@ -103,8 +106,12 @@ class WebhookAlertNotifierTest {
                 new SimpleMeterRegistry(),
                 Clock.systemUTC());
 
-        notifier.notify(new AlertEvent(AlertEventType.INCIDENT_OPENED, UUID.randomUUID(), UUID.randomUUID(), Instant.now(), "down"));
+        notifier.notify(new AlertEvent(AlertEventType.INCIDENT_OPENED, UUID.randomUUID(), UUID.randomUUID(), Instant.now(), "down"), plan());
 
         verify(repo, never()).save(any());
+    }
+
+    private NotificationDispatchPlan plan() {
+        return new NotificationDispatchPlan(null, NotificationSeverity.CRITICAL, 0, 0, EnumSet.of(NotificationChannel.WEBHOOK), null);
     }
 }
