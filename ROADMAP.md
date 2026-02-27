@@ -41,8 +41,12 @@
 - [x] Escalation step model (ordered, delay/min-severity metadata)
 - [x] ADMIN CRUD API for notification policies
 - [x] Flyway migration for policy persistence + dispatch metadata extensions
+- [x] Maintenance windows model (`ONE_TIME`, `RECURRING`) with timezone-aware evaluation
+- [x] Maintenance policy semantics (`SUPPRESS` vs `ANNOTATE`) integrated into incident/alert transition flow
+- [x] ADMIN CRUD API for maintenance windows
+- [x] Flyway migration for maintenance window persistence
 
 ## Next
-- maintenance windows
+- incident annotations / manual incident updates
 - paging/filtering and richer audit querying
 - multi-node operational tooling and metrics (dashboarding/alerts on new lock counters)

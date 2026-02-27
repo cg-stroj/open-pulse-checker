@@ -23,7 +23,16 @@
 - Flyway runs at startup with `validate-on-migrate=true` and `clean-disabled=true`.
 - Never use Flyway clean in production.
 - Apply schema changes with reviewed SQL migrations committed under `src/main/resources/db/migration`.
-- Phase 2.1 adds `V5__phase2_1_notification_policy.sql`; verify policy scope uniqueness and dispatch metadata indexes post-deploy.
+- Phase 2.1 adds `V5__phase2_1_notification_policy.sql` and `V6__phase2_1_maintenance_windows.sql`.
+- Post-deploy checks:
+  - verify policy scope uniqueness and dispatch metadata indexes
+  - verify `maintenance_windows` constraints for scope/type integrity
+  - run a deterministic maintenance-window smoke test (one active `SUPPRESS` window + one `ANNOTATE` window)
+
+## Maintenance window behavior (Ticket #41)
+- `SUPPRESS`: while active, new DOWN transitions do not open incidents and no opened-alert is dispatched.
+- `ANNOTATE`: transitions continue, but incident/alert reason text includes maintenance context.
+- Recovery (`UP`) continues to resolve existing incidents, including during maintenance, to keep lifecycle deterministic.
 
 ## Multi-node observability (Ticket #45)
 

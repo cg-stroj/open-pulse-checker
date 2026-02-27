@@ -2,24 +2,7 @@
 
 Open Pulse Checker is a security-first, self-host-first OSS monitoring platform.
 
-## Daily update (2026-02-26)
-### ✅ What we completed today
-- Stabilized and delivered core platform slices from **Phase 1.x to Phase 2.0**.
-- Production hardening is in place: distributed scheduler locks, rate limiting, API keys, DLQ, audit logging, and PostgreSQL prod profile.
-- Public status pages are now implemented with slug-based public endpoint and incident timeline.
-- Security posture was strengthened across auth/authz, webhook delivery reliability, and operational runbooks.
-- Latest validation: full automated test suite green (`tests=28, failures=0, errors=0, skipped=0`).
-
-### ⏭️ What remains (planned for tomorrow)
-- Start **Phase 2.1**:
-  - notification policy customization,
-  - maintenance windows,
-  - incident annotations / manual incident updates.
-- Add paging/filtering + richer audit querying for operations.
-- Extend multi-node operational tooling and dashboards for lock/queue metrics.
-- Prepare next release checklist and cut the next milestone increment.
-
-## Phase 2.1 delivered (notification policy customization)
+## Phase 2.1 delivered (notification policy + maintenance windows)
 - Policy scopes: `GLOBAL`, `MONITOR`, `STATUS_PAGE` with override precedence monitor > status page > global
 - Severity-aware route rules (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO`)
 - Channel toggles (currently `WEBHOOK`) and ordered escalation-step metadata
@@ -30,6 +13,22 @@ Open Pulse Checker is a security-first, self-host-first OSS monitoring platform.
   - `POST /api/v1/admin/notification-policies`
   - `PUT /api/v1/admin/notification-policies/{id}`
 - Schema additions: `notification_policies`, `notification_route_rules`, `notification_escalation_steps`, plus dispatch metadata columns on `dispatched_alerts`
+- Maintenance windows domain:
+  - one-time (`ONE_TIME`) windows using absolute UTC timestamps (`startAt`/`endAt`)
+  - recurring (`RECURRING`) weekly windows using `timezone`, `recurringDays`, `recurringStartTime`, `recurringEndTime`
+  - scope support: `GLOBAL` and `MONITOR`
+  - policy support: `SUPPRESS` and `ANNOTATE`
+- ADMIN API for maintenance windows:
+  - `GET /api/v1/admin/maintenance-windows`
+  - `GET /api/v1/admin/maintenance-windows/{id}`
+  - `POST /api/v1/admin/maintenance-windows`
+  - `PUT /api/v1/admin/maintenance-windows/{id}`
+  - `DELETE /api/v1/admin/maintenance-windows/{id}`
+- Incident/alert semantics during active maintenance:
+  - `SUPPRESS`: new DOWN incidents are not created, therefore no incident-opened alert is emitted.
+  - `ANNOTATE`: incidents/alerts continue, and event reason is annotated with active maintenance context.
+  - Existing open incidents still resolve on recovery for deterministic lifecycle behavior.
+- Additional schema: `maintenance_windows` (`V6__phase2_1_maintenance_windows.sql`)
 
 ### Notification policy create example (ADMIN)
 ```bash
@@ -50,6 +49,23 @@ curl -u admin:change-me -X POST http://localhost:8080/api/v1/admin/notification-
     "escalationSteps":[
       {"stepOrder":1,"afterSeconds":0,"minSeverity":"CRITICAL","webhookEnabled":true}
     ]
+  }'
+```
+
+### Maintenance window create example (ADMIN)
+```bash
+curl -u admin:change-me -X POST http://localhost:8080/api/v1/admin/maintenance-windows \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name":"Weekly patching",
+    "scopeType":"GLOBAL",
+    "type":"RECURRING",
+    "policy":"SUPPRESS",
+    "enabled":true,
+    "timezone":"Europe/Berlin",
+    "recurringDays":["SUNDAY"],
+    "recurringStartTime":"01:00",
+    "recurringEndTime":"03:00"
   }'
 ```
 
