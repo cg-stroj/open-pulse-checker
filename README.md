@@ -145,6 +145,20 @@ mvn test
 mvn spring-boot:run
 ```
 
+## Frontend foundation (ticket #49)
+A React + TypeScript + Vite frontend baseline is available in `frontend/`.
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+```
+
+- Dev UI default: `http://localhost:5173`
+- API default (configurable): `http://localhost:8080/api/v1`
+- See `frontend/README.md` for architecture and component baseline details.
+
 ### Production profile (PostgreSQL)
 ```bash
 export SPRING_PROFILES_ACTIVE=prod
