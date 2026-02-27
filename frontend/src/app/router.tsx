@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '../components/layout/AppShell'
+import { AuditExplorerPage } from '../pages/AuditExplorerPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { IncidentsPage } from '../pages/IncidentsPage'
 import { MaintenanceWindowsPage } from '../pages/MaintenanceWindowsPage'
@@ -19,6 +20,7 @@ export function AppRouter() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/monitors" element={<MonitorsPage />} />
           <Route path="/incidents" element={<IncidentsPage />} />
+          <Route path="/audit-explorer" element={<AuditExplorerPage />} />
           <Route path="/maintenance-windows" element={<MaintenanceWindowsPage />} />
           <Route path="/notification-policies" element={<NotificationPoliciesPage />} />
           <Route path="/status-pages" element={<StatusPagesPage />} />

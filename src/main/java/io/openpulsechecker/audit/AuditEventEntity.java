@@ -32,10 +32,13 @@ public class AuditEventEntity {
         if (occurredAt == null) occurredAt = Instant.now();
     }
 
+    public UUID getId() { return id; }
     public String getAction() { return action; }
     public String getTarget() { return target; }
     public String getUsername() { return username; }
     public String getResult() { return result; }
+    public String getDetails() { return details; }
+    public Instant getOccurredAt() { return occurredAt; }
     public void setUsername(String username) { this.username = username; }
     public void setAction(String action) { this.action = action; }
     public void setTarget(String target) { this.target = target; }

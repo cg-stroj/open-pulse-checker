@@ -2,6 +2,13 @@
 
 Open Pulse Checker is a security-first, self-host-first OSS monitoring platform.
 
+## Phase 2.3 delivered (audit explorer + export UX)
+- ADMIN audit API:
+  - `GET /api/v1/admin/audit-events` (search/filter + pagination)
+  - `GET /api/v1/admin/audit-events/export?format=csv|json` (filtered export, bounded result set)
+- Baseline filter fields: `q`, `actor`, `action`, `resource`, `outcome`, `fromAt`, `toAt`
+- Frontend module `Audit Explorer` (`/audit-explorer`) for operational troubleshooting with pagination + CSV/JSON export feedback
+
 ## Phase 2.2 delivered (incident manual lifecycle + annotations)
 - ADMIN incident operations:
   - `POST /api/v1/admin/incidents/{id}/acknowledge`

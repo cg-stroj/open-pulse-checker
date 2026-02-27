@@ -57,6 +57,11 @@ Default frontend URL: `http://localhost:5173`
   - cooldown + dedup numeric controls with inline validation
   - ordered escalation-step editor (delay/min severity/channel toggle)
   - best-effort effective policy summary for selected policy
+- Audit Explorer (`/audit-explorer`):
+  - paginated admin audit retrieval against `/api/v1/admin/audit-events`
+  - baseline filters: global search, actor, action, resource, outcome, date range
+  - CSV/JSON export flow via `/api/v1/admin/audit-events/export`
+  - export success/failure toast feedback for operational troubleshooting
 - Status Pages (`/status-pages`):
   - admin list/create against `/api/v1/status-pages`
   - monitor binding workspace (`attach`, `reorder`, `remove`) for selected page
