@@ -57,6 +57,11 @@ Default frontend URL: `http://localhost:5173`
   - cooldown + dedup numeric controls with inline validation
   - ordered escalation-step editor (delay/min severity/channel toggle)
   - best-effort effective policy summary for selected policy
+- Status Pages (`/status-pages`):
+  - admin list/create against `/api/v1/status-pages`
+  - monitor binding workspace (`attach`, `reorder`, `remove`) for selected page
+  - integrated read-only public preview by slug from `/api/v1/public/status-pages/{slug}`
+  - clear behavior for missing/non-public slug preview failures
 - UI primitives:
   - `Button`, `Badge`
   - `DataTable`
