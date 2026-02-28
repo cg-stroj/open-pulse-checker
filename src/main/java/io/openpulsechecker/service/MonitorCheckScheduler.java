@@ -63,7 +63,7 @@ public class MonitorCheckScheduler {
         this.localInFlightSkipCounter = meterRegistry.counter("openpulse.scheduler.execution.skip.local_inflight");
     }
 
-    @Scheduled(fixedDelayString = "${openpulse.scheduler.poll-interval-ms}")
+    @Scheduled(fixedDelayString = "${openpulse.scheduler.poll-interval-ms:5000}")
     public void scheduleDueChecks() {
         Instant now = clock.instant();
         for (MonitorEntity monitor : monitorRepository.findByEnabledTrue()) {
