@@ -2,12 +2,32 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MODE="${1:-auto}"
+MODE="auto"
+INTERACTIVE=false
 
-case "$MODE" in
-  auto|docker|local) ;;
-  *) echo "Usage: ./scripts/install.sh [auto|docker|local]"; exit 1 ;;
-esac
+usage() {
+  echo "Usage: ./scripts/install.sh [auto|docker|local] [--wizard|-w]"
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    auto|docker|local)
+      MODE="$1"
+      ;;
+    --wizard|-w)
+      INTERACTIVE=true
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 generate_password() {
   if command -v openssl >/dev/null 2>&1; then openssl rand -hex 16; else date +%s | sha256sum | cut -c1-32; fi
@@ -51,8 +71,140 @@ provision_local_postgres() {
   set_env_value "$ROOT_DIR/.env" OPENPULSE_DB_URL "jdbc:postgresql://localhost:5432/${db_name}"
 }
 
+is_windows() {
+  local uname_s
+  uname_s="$(uname -s 2>/dev/null || true)"
+  [[ "$uname_s" =~ MINGW|MSYS|CYGWIN|Windows_NT ]]
+}
+
+read_current_env() {
+  set -a; source "$ROOT_DIR/.env"; set +a
+}
+
+prompt_with_default() {
+  local prompt="$1" default="$2" value
+  read -r -p "$prompt [$default]: " value
+  if [[ -z "$value" ]]; then
+    echo "$default"
+  else
+    echo "$value"
+  fi
+}
+
+validate_port() {
+  local port="$1"
+  [[ "$port" =~ ^[0-9]+$ ]] || return 1
+  (( port >= 1 && port <= 65535 ))
+}
+
+prompt_port() {
+  local prompt="$1" default="$2" value
+  while true; do
+    value="$(prompt_with_default "$prompt" "$default")"
+    if validate_port "$value"; then
+      echo "$value"
+      return
+    fi
+    echo "[fail] Port must be a number between 1 and 65535."
+  done
+}
+
+prompt_non_empty() {
+  local prompt="$1" default="$2" value
+  while true; do
+    value="$(prompt_with_default "$prompt" "$default")"
+    if [[ -n "$value" ]]; then
+      echo "$value"
+      return
+    fi
+    echo "[fail] Value cannot be empty."
+  done
+}
+
+prompt_yes_no() {
+  local prompt="$1" default="$2" answer
+  while true; do
+    read -r -p "$prompt [$default]: " answer
+    answer="${answer:-$default}"
+    case "${answer,,}" in
+      y|yes) echo "yes"; return ;;
+      n|no) echo "no"; return ;;
+      *) echo "[fail] Enter y/yes or n/no." ;;
+    esac
+  done
+}
+
+run_wizard() {
+  read_current_env
+  local default_mode="${OPENPULSE_RUNTIME_MODE:-$MODE}"
+  local runtime_mode backend_port frontend_port db_name db_user db_port db_password
+  local bootstrap_enabled bootstrap_username bootstrap_password
+
+  echo "[wizard] Interactive setup"
+  while true; do
+    runtime_mode="$(prompt_with_default "Runtime mode (auto/docker/local)" "$default_mode")"
+    case "$runtime_mode" in
+      auto|docker|local) break ;;
+      *) echo "[fail] Runtime mode must be one of: auto, docker, local." ;;
+    esac
+  done
+
+  if is_windows && [[ "$runtime_mode" == "local" ]]; then
+    echo "[fail] Windows local mode is not supported yet. Choose docker/auto, or run local mode from Linux/macOS (or WSL)."
+    exit 1
+  fi
+
+  backend_port="$(prompt_port "Backend port" "${OPENPULSE_PORT:-8888}")"
+  frontend_port="$(prompt_port "Frontend port" "${OPENPULSE_FRONTEND_PORT:-5173}")"
+  db_port="$(prompt_port "Database port" "${OPENPULSE_DB_PORT:-5432}")"
+  db_name="$(prompt_non_empty "Database name" "${OPENPULSE_DB_NAME:-openpulse}")"
+  db_user="$(prompt_non_empty "Database user" "${OPENPULSE_DB_USERNAME:-openpulse}")"
+
+  if [[ "$(prompt_yes_no "Generate secure DB password?" "y")" == "yes" ]]; then
+    db_password="$(generate_password)"
+    echo "[wizard] Generated DB password."
+  else
+    db_password="$(prompt_non_empty "Database password" "${OPENPULSE_DB_PASSWORD:-}")"
+  fi
+
+  if [[ "$(prompt_yes_no "Enable bootstrap admin?" "n")" == "yes" ]]; then
+    bootstrap_enabled="true"
+    bootstrap_username="$(prompt_non_empty "Bootstrap admin username" "${OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_USERNAME:-admin}")"
+    if [[ "$(prompt_yes_no "Generate bootstrap admin password?" "y")" == "yes" ]]; then
+      bootstrap_password="$(generate_password)"
+      echo "[wizard] Generated bootstrap admin password."
+    else
+      bootstrap_password="$(prompt_non_empty "Bootstrap admin password" "")"
+    fi
+  else
+    bootstrap_enabled="false"
+    bootstrap_username="${OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_USERNAME:-admin}"
+    bootstrap_password=""
+  fi
+
+  set_env_value "$ROOT_DIR/.env" OPENPULSE_RUNTIME_MODE "$runtime_mode"
+  set_env_value "$ROOT_DIR/.env" OPENPULSE_PORT "$backend_port"
+  set_env_value "$ROOT_DIR/.env" OPENPULSE_FRONTEND_PORT "$frontend_port"
+  set_env_value "$ROOT_DIR/.env" OPENPULSE_DB_PORT "$db_port"
+  set_env_value "$ROOT_DIR/.env" OPENPULSE_DB_NAME "$db_name"
+  set_env_value "$ROOT_DIR/.env" OPENPULSE_DB_USERNAME "$db_user"
+  set_env_value "$ROOT_DIR/.env" OPENPULSE_DB_PASSWORD "$db_password"
+  set_env_value "$ROOT_DIR/.env" OPENPULSE_DB_URL "jdbc:postgresql://localhost:${db_port}/${db_name}"
+  set_env_value "$ROOT_DIR/.env" OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_ENABLED "$bootstrap_enabled"
+  set_env_value "$ROOT_DIR/.env" OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_USERNAME "$bootstrap_username"
+  set_env_value "$ROOT_DIR/.env" OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_PASSWORD "$bootstrap_password"
+
+  set_env_value "$ROOT_DIR/frontend/.env" VITE_API_BASE_URL "${VITE_API_BASE_URL:-http://localhost:${backend_port}/api/v1}"
+
+  MODE="$runtime_mode"
+}
+
 echo "[install] Open Pulse Checker install"
 bootstrap_env
+
+if [[ "$INTERACTIVE" == true ]]; then
+  run_wizard
+fi
 
 RUNTIME_MODE="local"
 if [[ "$MODE" == "docker" ]]; then

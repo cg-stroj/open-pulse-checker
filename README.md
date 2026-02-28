@@ -126,6 +126,22 @@ Windows (PowerShell):
 ./scripts/install.ps1 [auto|docker|local]
 ```
 
+Interactive setup wizard (writes `.env` safely):
+
+Linux/macOS:
+```bash
+./scripts/install.sh --wizard
+# or force default selection baseline:
+./scripts/install.sh docker --wizard
+```
+
+Windows (PowerShell):
+```powershell
+./scripts/install.ps1 -Wizard
+# or:
+./scripts/install.ps1 -Mode docker -Wizard
+```
+
 Behavior:
 - **Linux/macOS**
   - `auto` (default) chooses Docker when ready, otherwise local mode
@@ -137,6 +153,14 @@ Behavior:
   - `local` is currently **unsupported** and fails fast with an explicit error message
 
 Installer also bootstraps `.env` + `frontend/.env` from examples when missing.
+
+Wizard prompts cover:
+- runtime mode (`auto|docker|local`)
+- backend/frontend/database ports (validated 1..65535)
+- database name/user/password (with secure password generation option)
+- optional bootstrap admin username/password (with secure password generation option)
+
+Windows still fails fast for `local` runtime selection (non-interactive and wizard mode) to match current platform policy.
 
 ### 2) Manual setup
 
