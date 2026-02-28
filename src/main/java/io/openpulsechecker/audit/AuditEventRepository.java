@@ -23,8 +23,8 @@ public interface AuditEventRepository extends JpaRepository<AuditEventEntity, UU
               and (:action is null or lower(e.action) like lower(concat('%', cast(:action as string), '%')))
               and (:resource is null or lower(e.target) like lower(concat('%', cast(:resource as string), '%')))
               and (:outcome is null or lower(e.result) = lower(cast(:outcome as string)))
-              and (:fromAt is null or e.occurredAt >= :fromAt)
-              and (:toAt is null or e.occurredAt <= :toAt)
+              and e.occurredAt >= coalesce(:fromAt, e.occurredAt)
+              and e.occurredAt <= coalesce(:toAt, e.occurredAt)
             """)
     Page<AuditEventEntity> search(
             @Param("q") String q,
@@ -47,8 +47,8 @@ public interface AuditEventRepository extends JpaRepository<AuditEventEntity, UU
               and (:action is null or lower(e.action) like lower(concat('%', cast(:action as string), '%')))
               and (:resource is null or lower(e.target) like lower(concat('%', cast(:resource as string), '%')))
               and (:outcome is null or lower(e.result) = lower(cast(:outcome as string)))
-              and (:fromAt is null or e.occurredAt >= :fromAt)
-              and (:toAt is null or e.occurredAt <= :toAt)
+              and e.occurredAt >= coalesce(:fromAt, e.occurredAt)
+              and e.occurredAt <= coalesce(:toAt, e.occurredAt)
               and (:cursorOccurredAt is null or e.occurredAt < :cursorOccurredAt)
             order by e.occurredAt desc, e.id desc
             """)
