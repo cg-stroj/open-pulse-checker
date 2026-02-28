@@ -11,6 +11,20 @@ permissions:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: openpulse
+          POSTGRES_USER: openpulse
+          POSTGRES_PASSWORD: openpulse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U openpulse -d openpulse"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,4 +37,8 @@ jobs:
           cache: maven
 
       - name: Build, test, and package verification
+        env:
+          OPENPULSE_DB_URL: jdbc:postgresql://localhost:5432/openpulse
+          OPENPULSE_DB_USERNAME: openpulse
+          OPENPULSE_DB_PASSWORD: openpulse
         run: mvn --batch-mode --no-transfer-progress clean verify

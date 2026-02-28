@@ -77,6 +77,13 @@ Required:
 - `curl` (used by health checks)
 - `lsof` (port collision checks/auto-pick)
 
+### CI note (GitHub Actions)
+
+Integration tests require PostgreSQL. The CI workflow provisions a `postgres` service container and passes:
+- `OPENPULSE_DB_URL=jdbc:postgresql://localhost:5432/openpulse`
+- `OPENPULSE_DB_USERNAME=openpulse`
+- `OPENPULSE_DB_PASSWORD=openpulse`
+
 Run a preflight check anytime:
 
 Linux/macOS:
