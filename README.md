@@ -89,6 +89,7 @@ Windows (PowerShell):
 
 - If scripts fail with Docker checks, start Docker Desktop/Engine and retry.
 - If startup fails due to ports, update `.env` (`OPENPULSE_PORT`, `OPENPULSE_FRONTEND_PORT`) and rerun `start`.
+- If UI sign-in reports network/API issue, set `OPENPULSE_FRONTEND_API_BASE_URL=http://localhost:8888/api/v1` in `.env` and rebuild via `./scripts/run.sh restart`.
 - Use `status` for service state and `logs` for diagnostics.
 - Use `reset` when state is inconsistent and you need a clean Docker data reset.
 
