@@ -66,8 +66,15 @@ install_local_deps_ubuntu() {
 provision_local_postgres() {
   set -a; source "$ROOT_DIR/.env"; set +a
   local db_name="${OPENPULSE_DB_NAME:-openpulse}" db_user="${OPENPULSE_DB_USERNAME:-openpulse}" db_pass="${OPENPULSE_DB_PASSWORD:-openpulse}"
-  sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='${db_user}'" | grep -q 1 || sudo -u postgres psql -c "CREATE USER ${db_user} WITH PASSWORD '${db_pass}';"
+  local db_pass_sql="${db_pass//\'/\'\'}"
+
+  sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='${db_user}'" | grep -q 1 || sudo -u postgres psql -c "CREATE USER ${db_user} WITH PASSWORD '${db_pass_sql}';"
+  # Keep DB user password in sync with .env on every install run (prevents auth mismatch after password regeneration)
+  sudo -u postgres psql -c "ALTER USER ${db_user} WITH PASSWORD '${db_pass_sql}';"
+
   sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='${db_name}'" | grep -q 1 || sudo -u postgres psql -c "CREATE DATABASE ${db_name} OWNER ${db_user};"
+  sudo -u postgres psql -c "ALTER DATABASE ${db_name} OWNER TO ${db_user};" || true
+
   set_env_value "$ROOT_DIR/.env" OPENPULSE_DB_URL "jdbc:postgresql://localhost:5432/${db_name}"
 }
 
