@@ -58,11 +58,13 @@ Default endpoints (from `.env`):
 - API: `http://localhost:8888/api/v1`
 - Frontend: `http://localhost:5173`
 
-Important: in **local mode**, `run.sh` auto-shifts frontend port when the configured one is busy (for example from `5173` to `5180`).
-So your real URL can differ. Always verify current runtime values in `.env`:
+Important (local mode): frontend port is deterministic. By default it is `5173` (or `OPENPULSE_FRONTEND_PORT` if explicitly set), and `run.sh` will **not** auto-increment or rewrite `.env` at runtime.
+If the configured frontend port is already in use, startup fails fast with a clear message.
+
+Override example (explicit env only):
 
 ```bash
-grep -E '^(OPENPULSE_PORT|OPENPULSE_FRONTEND_PORT)=' .env
+OPENPULSE_FRONTEND_PORT=5180 ./scripts/run.sh start local
 ```
 
 ## Install and run modes
@@ -88,7 +90,7 @@ Required:
 ### Optional but useful
 
 - `curl` (used by health checks)
-- `lsof` (port collision checks/auto-pick)
+- `lsof` (port collision checks)
 
 ### CI note (GitHub Actions)
 

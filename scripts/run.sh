@@ -24,12 +24,6 @@ set_env_value() {
   mv "$tmp" "$file"
 }
 
-first_free_port() {
-  local p="$1"
-  while lsof -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; do p=$((p+1)); done
-  echo "$p"
-}
-
 normalize_env() {
   ensure_env_file
   # migrate legacy keys
@@ -39,15 +33,10 @@ normalize_env() {
   # dedupe keys (keep last)
   awk -F= '!seen[$1]++{keys[++n]=$1} {val[$1]=$0} END{for(i=1;i<=n;i++) print val[keys[i]]}' "$ROOT_DIR/.env" > "$ROOT_DIR/.env.tmp" && mv "$ROOT_DIR/.env.tmp" "$ROOT_DIR/.env"
 
-  local fe_port
-  fe_port="$(grep '^OPENPULSE_FRONTEND_PORT=' "$ROOT_DIR/.env" | cut -d= -f2- || true)"
-  [[ -n "$fe_port" ]] || fe_port=5173
-  if lsof -iTCP:"$fe_port" -sTCP:LISTEN >/dev/null 2>&1; then
-    fe_port="$(first_free_port "$fe_port")"
-    set_env_value "$ROOT_DIR/.env" "OPENPULSE_FRONTEND_PORT" "$fe_port"
-  fi
-
+  local env_override_frontend_port="${OPENPULSE_FRONTEND_PORT-}"
   set -a; source "$ROOT_DIR/.env"; set +a
+  [[ -n "${env_override_frontend_port}" ]] && OPENPULSE_FRONTEND_PORT="$env_override_frontend_port"
+
   OPENPULSE_PORT="${OPENPULSE_PORT:-8080}"
   OPENPULSE_FRONTEND_PORT="${OPENPULSE_FRONTEND_PORT:-5173}"
   OPENPULSE_DB_PORT="${OPENPULSE_DB_PORT:-5432}"
@@ -71,6 +60,15 @@ wait_http() {
   echo "[ok] $name reachable: $url"
 }
 
+assert_port_free() {
+  local port="$1" label="$2"
+  if lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "[fail] Configured $label port :$port is already in use."
+    echo "[hint] Stop the process using :$port or set OPENPULSE_FRONTEND_PORT to a free port in your environment before starting."
+    return 1
+  fi
+}
+
 health_docker() {
   compose_cmd exec -T postgres pg_isready -U "${OPENPULSE_DB_USERNAME:-openpulse}" -d "${OPENPULSE_DB_NAME:-openpulse}" >/dev/null
   wait_http backend "http://localhost:${OPENPULSE_PORT}/api/v1/health" 120
@@ -87,7 +85,8 @@ start_local() {
     (cd "$ROOT_DIR" && nohup mvn spring-boot:run -Dspring-boot.run.jvmArguments="-Dserver.port=${OPENPULSE_PORT}" > "$RUN_DIR/backend.log" 2>&1 & echo $! > "$RUN_DIR/backend.pid")
   fi
   if [[ ! -f "$RUN_DIR/frontend.pid" ]] || ! kill -0 "$(cat "$RUN_DIR/frontend.pid")" 2>/dev/null; then
-    (cd "$ROOT_DIR/frontend" && nohup npm run dev -- --host 0.0.0.0 --strictPort --port "$OPENPULSE_FRONTEND_PORT" > "$RUN_DIR/frontend.log" 2>&1 & echo $! > "$RUN_DIR/frontend.pid")
+    assert_port_free "$OPENPULSE_FRONTEND_PORT" "frontend" || exit 1
+    (cd "$ROOT_DIR/frontend" && nohup node ./node_modules/vite/bin/vite.js --host 0.0.0.0 --strictPort --port "$OPENPULSE_FRONTEND_PORT" > "$RUN_DIR/frontend.log" 2>&1 & echo $! > "$RUN_DIR/frontend.pid")
   fi
 
   wait_http backend "http://localhost:${OPENPULSE_PORT}/api/v1/health" 120
@@ -100,6 +99,13 @@ stop_local() {
     kill "$(cat "$RUN_DIR/$svc.pid")" 2>/dev/null || true
     rm -f "$RUN_DIR/$svc.pid"
   done
+
+  # Frontend can outlive npm wrappers in some environments; ensure configured port is released.
+  if lsof -iTCP:"$OPENPULSE_FRONTEND_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+    lsof -tiTCP:"$OPENPULSE_FRONTEND_PORT" -sTCP:LISTEN | xargs -r kill 2>/dev/null || true
+    sleep 1
+    lsof -tiTCP:"$OPENPULSE_FRONTEND_PORT" -sTCP:LISTEN | xargs -r kill -9 2>/dev/null || true
+  fi
 }
 
 doctor() {
