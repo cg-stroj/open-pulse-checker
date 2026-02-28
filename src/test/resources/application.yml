@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: ${OPENPULSE_DB_URL:jdbc:postgresql://localhost:5432/openpulse}
+    username: ${OPENPULSE_DB_USERNAME:openpulse}
+    password: ${OPENPULSE_DB_PASSWORD:openpulse}
+    driver-class-name: org.postgresql.Driver
+  test:
+    database:
+      replace: none
+  flyway:
+    enabled: true

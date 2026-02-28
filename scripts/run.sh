@@ -6,156 +6,118 @@ RUN_DIR="$ROOT_DIR/.openpulse/run"
 mkdir -p "$RUN_DIR"
 
 COMMAND="${1:-start}"
-MODE="${2:-auto}"
+MODE_ARG="${2:-auto}"
 
-compose_cmd() {
-  docker compose -f "$ROOT_DIR/docker-compose.full.yml" --env-file "$ROOT_DIR/.env" "$@"
+ensure_env_file() {
+  [[ -f "$ROOT_DIR/.env" ]] || cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
 }
 
-docker_available() {
-  command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 && docker compose version >/dev/null 2>&1
+set_env_value() {
+  local file="$1" key="$2" value="$3" tmp
+  tmp="$(mktemp)"
+  awk -F= -v k="$key" -v v="$value" 'BEGIN{u=0} $1==k {print k"="v; u=1; next} {print} END{if(!u) print k"="v}' "$file" > "$tmp"
+  mv "$tmp" "$file"
 }
+
+first_free_port() {
+  local p="$1"
+  while lsof -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; do p=$((p+1)); done
+  echo "$p"
+}
+
+normalize_env() {
+  ensure_env_file
+  # migrate legacy keys
+  if grep -q '^SERVER_PORT=' "$ROOT_DIR/.env" && ! grep -q '^OPENPULSE_PORT=' "$ROOT_DIR/.env"; then
+    set_env_value "$ROOT_DIR/.env" "OPENPULSE_PORT" "$(grep '^SERVER_PORT=' "$ROOT_DIR/.env" | tail -n1 | cut -d= -f2-)"
+  fi
+  # dedupe keys (keep last)
+  awk -F= '!seen[$1]++{keys[++n]=$1} {val[$1]=$0} END{for(i=1;i<=n;i++) print val[keys[i]]}' "$ROOT_DIR/.env" > "$ROOT_DIR/.env.tmp" && mv "$ROOT_DIR/.env.tmp" "$ROOT_DIR/.env"
+
+  local fe_port
+  fe_port="$(grep '^OPENPULSE_FRONTEND_PORT=' "$ROOT_DIR/.env" | cut -d= -f2- || true)"
+  [[ -n "$fe_port" ]] || fe_port=5173
+  if lsof -iTCP:"$fe_port" -sTCP:LISTEN >/dev/null 2>&1; then
+    fe_port="$(first_free_port "$fe_port")"
+    set_env_value "$ROOT_DIR/.env" "OPENPULSE_FRONTEND_PORT" "$fe_port"
+  fi
+
+  set -a; source "$ROOT_DIR/.env"; set +a
+  OPENPULSE_PORT="${OPENPULSE_PORT:-8080}"
+  OPENPULSE_FRONTEND_PORT="${OPENPULSE_FRONTEND_PORT:-5173}"
+  OPENPULSE_DB_PORT="${OPENPULSE_DB_PORT:-5432}"
+  OPENPULSE_RUNTIME_MODE="${OPENPULSE_RUNTIME_MODE:-auto}"
+}
+
+docker_ready() { command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; }
+compose_cmd() { docker compose -f "$ROOT_DIR/docker-compose.full.yml" --env-file "$ROOT_DIR/.env" "$@"; }
 
 pick_mode() {
-  if [[ "$MODE" == "docker" || "$MODE" == "local" ]]; then
-    echo "$MODE"
-    return
-  fi
-  if docker_available; then
-    echo "docker"
-  else
-    echo "local"
-  fi
+  if [[ "$MODE_ARG" == "docker" || "$MODE_ARG" == "local" ]]; then echo "$MODE_ARG"; return; fi
+  if [[ "$OPENPULSE_RUNTIME_MODE" == "docker" || "$OPENPULSE_RUNTIME_MODE" == "local" ]]; then echo "$OPENPULSE_RUNTIME_MODE"; return; fi
+  if docker_ready; then echo docker; else echo local; fi
 }
 
 wait_http() {
-  local name="$1" url="$2" timeout="${3:-90}"
-  local elapsed=0
+  local name="$1" url="$2" timeout="${3:-120}" elapsed=0
   until curl -fsS "$url" >/dev/null 2>&1; do
-    sleep 2
-    elapsed=$((elapsed+2))
-    if (( elapsed >= timeout )); then
-      echo "[fail] $name healthcheck timed out: $url"
-      return 1
-    fi
+    sleep 2; elapsed=$((elapsed+2)); [[ $elapsed -lt $timeout ]] || { echo "[fail] $name healthcheck timed out: $url"; return 1; }
   done
   echo "[ok] $name reachable: $url"
 }
 
 health_docker() {
-  echo "[health] verifying docker stack..."
-  compose_cmd exec -T postgres pg_isready -U "$(grep '^OPENPULSE_DB_USERNAME=' "$ROOT_DIR/.env" | cut -d= -f2)" -d "$(grep '^OPENPULSE_DB_NAME=' "$ROOT_DIR/.env" | cut -d= -f2)" >/dev/null
-  echo "[ok] postgres readiness passed"
-  wait_http "backend" "http://localhost:8080/api/v1/health" 120
-  wait_http "frontend" "http://localhost:5173" 120
+  compose_cmd exec -T postgres pg_isready -U "${OPENPULSE_DB_USERNAME:-openpulse}" -d "${OPENPULSE_DB_NAME:-openpulse}" >/dev/null
+  wait_http backend "http://localhost:${OPENPULSE_PORT}/api/v1/health" 120
+  wait_http frontend "http://localhost:${OPENPULSE_FRONTEND_PORT}" 120
 }
 
 start_local() {
-  echo "[run] Starting local fallback stack (backend + frontend; DB via in-memory H2)."
-  if [[ ! -d "$ROOT_DIR/frontend/node_modules" ]]; then
-    echo "[run] frontend dependencies missing; running npm ci"
-    (cd "$ROOT_DIR/frontend" && npm ci)
-  fi
+  pg_isready -h localhost -p "$OPENPULSE_DB_PORT" >/dev/null 2>&1 || sudo systemctl start postgresql || true
+  pg_isready -h localhost -p "$OPENPULSE_DB_PORT" >/dev/null 2>&1 || { echo "[fail] PostgreSQL not reachable on :$OPENPULSE_DB_PORT"; exit 1; }
+
+  [[ -d "$ROOT_DIR/frontend/node_modules" ]] || (cd "$ROOT_DIR/frontend" && npm ci)
 
   if [[ ! -f "$RUN_DIR/backend.pid" ]] || ! kill -0 "$(cat "$RUN_DIR/backend.pid")" 2>/dev/null; then
-    (cd "$ROOT_DIR" && nohup mvn spring-boot:run > "$RUN_DIR/backend.log" 2>&1 & echo $! > "$RUN_DIR/backend.pid")
-    echo "[run] backend started"
-  else
-    echo "[run] backend already running"
+    (cd "$ROOT_DIR" && nohup mvn spring-boot:run -Dspring-boot.run.jvmArguments="-Dserver.port=${OPENPULSE_PORT}" > "$RUN_DIR/backend.log" 2>&1 & echo $! > "$RUN_DIR/backend.pid")
   fi
-
   if [[ ! -f "$RUN_DIR/frontend.pid" ]] || ! kill -0 "$(cat "$RUN_DIR/frontend.pid")" 2>/dev/null; then
-    (cd "$ROOT_DIR/frontend" && nohup npm run dev -- --host 0.0.0.0 --port 5173 > "$RUN_DIR/frontend.log" 2>&1 & echo $! > "$RUN_DIR/frontend.pid")
-    echo "[run] frontend started"
-  else
-    echo "[run] frontend already running"
+    (cd "$ROOT_DIR/frontend" && nohup npm run dev -- --host 0.0.0.0 --strictPort --port "$OPENPULSE_FRONTEND_PORT" > "$RUN_DIR/frontend.log" 2>&1 & echo $! > "$RUN_DIR/frontend.pid")
   fi
 
-  wait_http "backend" "http://localhost:8080/api/v1/health" 120
-  wait_http "frontend" "http://localhost:5173" 120
-  echo "[health] Local mode uses embedded H2 DB; no external DB readiness probe required."
+  wait_http backend "http://localhost:${OPENPULSE_PORT}/api/v1/health" 120
+  wait_http frontend "http://localhost:${OPENPULSE_FRONTEND_PORT}" 120
 }
 
 stop_local() {
   for svc in backend frontend; do
-    if [[ -f "$RUN_DIR/$svc.pid" ]]; then
-      pid="$(cat "$RUN_DIR/$svc.pid")"
-      if kill -0 "$pid" 2>/dev/null; then
-        kill "$pid" || true
-        echo "[run] stopped $svc ($pid)"
-      fi
-      rm -f "$RUN_DIR/$svc.pid"
-    fi
+    [[ -f "$RUN_DIR/$svc.pid" ]] || continue
+    kill "$(cat "$RUN_DIR/$svc.pid")" 2>/dev/null || true
+    rm -f "$RUN_DIR/$svc.pid"
   done
 }
 
-status_local() {
-  for svc in backend frontend; do
-    if [[ -f "$RUN_DIR/$svc.pid" ]] && kill -0 "$(cat "$RUN_DIR/$svc.pid")" 2>/dev/null; then
-      echo "[status] $svc: running (pid $(cat "$RUN_DIR/$svc.pid"))"
-    else
-      echo "[status] $svc: stopped"
-    fi
-  done
+doctor() {
+  normalize_env
+  stop_local
+  pkill -f "spring-boot:run" 2>/dev/null || true
+  pkill -f "vite" 2>/dev/null || true
+  echo "[ok] doctor finished"
+  echo "[info] API: http://localhost:${OPENPULSE_PORT}/api/v1"
+  echo "[info] FE : http://localhost:${OPENPULSE_FRONTEND_PORT}"
 }
 
-logs_local() {
-  tail -n 100 "$RUN_DIR/backend.log" "$RUN_DIR/frontend.log" 2>/dev/null || echo "[logs] No local logs yet."
-}
-
-if [[ ! -f "$ROOT_DIR/.env" && "$COMMAND" != "stop" && "$COMMAND" != "status" && "$COMMAND" != "logs" ]]; then
-  echo "[run] Missing .env; creating from template."
-  cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
-fi
-
+normalize_env
 ACTIVE_MODE="$(pick_mode)"
 echo "[run] command=$COMMAND mode=$ACTIVE_MODE"
 
 case "$COMMAND" in
-  start)
-    if [[ "$ACTIVE_MODE" == "docker" ]]; then
-      compose_cmd up -d --build
-      health_docker
-    else
-      start_local
-    fi
-    ;;
-  stop)
-    if [[ "$ACTIVE_MODE" == "docker" ]]; then
-      compose_cmd down
-    else
-      stop_local
-    fi
-    ;;
-  restart)
-    "$0" stop "$ACTIVE_MODE"
-    "$0" start "$ACTIVE_MODE"
-    ;;
-  status)
-    if [[ "$ACTIVE_MODE" == "docker" ]]; then
-      compose_cmd ps
-    else
-      status_local
-    fi
-    ;;
-  health)
-    if [[ "$ACTIVE_MODE" == "docker" ]]; then
-      health_docker
-    else
-      wait_http "backend" "http://localhost:8080/api/v1/health" 60
-      wait_http "frontend" "http://localhost:5173" 60
-      echo "[health] Local mode uses embedded H2 DB."
-    fi
-    ;;
-  logs)
-    if [[ "$ACTIVE_MODE" == "docker" ]]; then
-      compose_cmd logs --tail=200
-    else
-      logs_local
-    fi
-    ;;
-  *)
-    echo "Usage: ./scripts/run.sh {start|stop|restart|status|health|logs} [auto|docker|local]"
-    exit 1
-    ;;
+  start) [[ "$ACTIVE_MODE" == docker ]] && { docker_ready || { echo "[fail] Docker not ready"; exit 1; }; compose_cmd up -d --build; health_docker; } || start_local ;;
+  stop) [[ "$ACTIVE_MODE" == docker ]] && docker_ready && compose_cmd down || stop_local ;;
+  restart) "$0" stop "$ACTIVE_MODE"; "$0" start "$ACTIVE_MODE" ;;
+  status) [[ "$ACTIVE_MODE" == docker ]] && docker_ready && compose_cmd ps || { for s in backend frontend; do [[ -f "$RUN_DIR/$s.pid" ]] && kill -0 "$(cat "$RUN_DIR/$s.pid")" 2>/dev/null && echo "[status] $s: running" || echo "[status] $s: stopped"; done; } ;;
+  health) [[ "$ACTIVE_MODE" == docker ]] && health_docker || { wait_http backend "http://localhost:${OPENPULSE_PORT}/api/v1/health" 60; wait_http frontend "http://localhost:${OPENPULSE_FRONTEND_PORT}" 60; } ;;
+  logs) [[ "$ACTIVE_MODE" == docker ]] && docker_ready && compose_cmd logs --tail=200 || tail -n 120 "$RUN_DIR/backend.log" "$RUN_DIR/frontend.log" 2>/dev/null || true ;;
+  doctor) doctor ;;
+  *) echo "Usage: ./scripts/run.sh {start|stop|restart|status|health|logs|doctor} [auto|docker|local]"; exit 1 ;;
 esac

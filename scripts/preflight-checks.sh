@@ -17,52 +17,36 @@ check_cmd() {
   local message="${2:-Install '$cmd' and retry.}"
   if command -v "$cmd" >/dev/null 2>&1; then
     ok "$cmd found"
-    return 0
+  else
+    fail "$cmd not found. $message"
   fi
-  fail "$cmd not found. $message"
-  return 1
 }
 
 check_port_free() {
   local port="$1"
   if command -v lsof >/dev/null 2>&1 && lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
-    warn "Port $port is in use. Startup may fail unless you change port settings."
+    warn "Port $port is in use. Startup may fail unless you change .env port settings."
   else
     ok "Port $port appears available"
   fi
 }
 
-docker_available() {
-  command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1
+docker_ready() {
+  command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 && docker compose version >/dev/null 2>&1
 }
 
-if [[ "$MODE" == "docker" || "$MODE" == "auto" ]]; then
-  if command -v docker >/dev/null 2>&1; then
-    if docker info >/dev/null 2>&1; then
-      ok "Docker daemon reachable"
-      if docker compose version >/dev/null 2>&1; then
-        ok "docker compose plugin available"
-      else
-        fail "docker compose plugin not available. Install Docker Compose v2."
-      fi
-    else
-      [[ "$MODE" == "docker" ]] && fail "Docker installed but daemon not reachable. Start Docker Desktop/daemon and retry." || warn "Docker daemon not reachable; will require local fallback mode."
-    fi
-  else
-    [[ "$MODE" == "docker" ]] && fail "Docker not found." || warn "Docker not found; will require local fallback mode."
-  fi
-fi
-
-DOCKER_OK=0
-if docker_available; then
-  DOCKER_OK=1
-fi
-
-if [[ "$MODE" == "local" || ( "$MODE" == "auto" && "$DOCKER_OK" -eq 0 ) ]]; then
-  check_cmd java "Install Java 21+ and set JAVA_HOME."
-  check_cmd mvn "Install Maven 3.9+ and retry."
+if docker_ready; then
+  ok "Docker daemon + compose ready"
+elif [[ "$MODE" == "docker" ]]; then
+  fail "Docker mode requested but Docker/Compose is not ready."
+else
+  warn "Docker not ready; installer/run can use local PostgreSQL mode."
+  check_cmd java "Install Java 21+."
+  check_cmd mvn "Install Maven 3.9+."
   check_cmd node "Install Node.js 20+ (22 recommended)."
   check_cmd npm "Install npm with Node.js."
+  check_cmd psql "Install PostgreSQL client."
+  check_cmd pg_isready "Install PostgreSQL tools."
 fi
 
 check_port_free "8080"
@@ -70,7 +54,7 @@ check_port_free "5173"
 check_port_free "5432"
 
 if [[ "$FAILED" -eq 1 ]]; then
-  echo "[preflight] Failed. Resolve the [fail] items and retry."
+  echo "[preflight] Failed. Resolve [fail] items and retry."
   exit 1
 fi
 

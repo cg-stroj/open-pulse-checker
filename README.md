@@ -48,22 +48,69 @@ Windows (PowerShell):
 ./scripts/run.sh health
 ```
 
-Default endpoints:
-- API: `http://localhost:8080/api/v1`
+Default endpoints (from `.env`):
+- API: `http://localhost:8888/api/v1`
 - Frontend: `http://localhost:5173`
 
 ## Install and run modes
 
-### Recommended: one-command workflow
+### Prerequisites (what is required)
 
-- `./scripts/install.sh` (or `install.ps1`) for setup
-- `./scripts/run.sh start|stop|restart|status|logs|health`
+PostgreSQL is always required (no H2 fallback), regardless of runtime mode.
 
-`run.sh start` defaults to **auto mode**:
-- Uses Docker full stack (`docker-compose.full.yml`) when Docker is available.
-- Falls back to local backend/frontend workflow when Docker is unavailable.
+### Option A: Docker runtime (recommended)
 
-### Manual backend/frontend workflow
+Required:
+- Docker Engine (daemon running)
+- Docker Compose v2 (`docker compose`)
+
+### Option B: Local runtime (without Docker)
+
+Required:
+- Java 21+
+- Maven 3.9+
+- Node.js 20+ (22 recommended) + npm
+- PostgreSQL server + client tools (`psql`, `pg_isready`)
+
+### Optional but useful
+
+- `curl` (used by health checks)
+- `lsof` (port collision checks/auto-pick)
+
+Run a preflight check anytime:
+
+Linux/macOS:
+```bash
+./scripts/preflight-checks.sh [auto|docker|local]
+```
+
+Windows (PowerShell):
+```powershell
+./scripts/preflight-checks.ps1 [auto|docker|local]
+```
+
+### Installation options
+
+### 1) One-command install (recommended)
+
+Linux/macOS:
+```bash
+./scripts/install.sh [auto|docker|local]
+```
+
+Windows (PowerShell):
+```powershell
+./scripts/install.ps1 [auto|docker|local]
+```
+
+Behavior:
+- `auto` (default) chooses Docker when ready, otherwise local mode
+- `docker` forces Docker stack setup
+- `local` forces native backend/frontend + local PostgreSQL setup
+
+Installer also bootstraps `.env` + `frontend/.env` from examples when missing.
+
+### 2) Manual setup
 
 Backend:
 ```bash
@@ -78,7 +125,7 @@ npm install
 npm run dev
 ```
 
-### Production profile (manual)
+### 3) Production profile (manual backend)
 
 ```bash
 export SPRING_PROFILES_ACTIVE=prod
