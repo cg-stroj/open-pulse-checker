@@ -49,7 +49,7 @@ public interface AuditEventRepository extends JpaRepository<AuditEventEntity, UU
               and (:outcome is null or lower(e.result) = lower(cast(:outcome as string)))
               and e.occurredAt >= coalesce(:fromAt, e.occurredAt)
               and e.occurredAt <= coalesce(:toAt, e.occurredAt)
-              and (:cursorOccurredAt is null or e.occurredAt < :cursorOccurredAt)
+              and e.occurredAt < coalesce(:cursorOccurredAt, CURRENT_TIMESTAMP)
             order by e.occurredAt desc, e.id desc
             """)
     List<AuditEventEntity> searchAfterCursor(
