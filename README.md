@@ -7,7 +7,7 @@ Open Pulse Checker is a security-first, self-hosted monitoring platform for upti
 ### 1) Clone
 
 ```bash
-git clone https://github.com/<your-org>/open-pulse-checker.git
+git clone https://github.com/cg-stroj/open-pulse-checker.git
 cd open-pulse-checker
 ```
 
