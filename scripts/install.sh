@@ -4,6 +4,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODE="${1:-auto}"
 
+case "$MODE" in
+  auto|docker|local) ;;
+  *) echo "Usage: ./scripts/install.sh [auto|docker|local]"; exit 1 ;;
+esac
+
 generate_password() {
   if command -v openssl >/dev/null 2>&1; then openssl rand -hex 16; else date +%s | sha256sum | cut -c1-32; fi
 }

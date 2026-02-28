@@ -8,6 +8,11 @@ mkdir -p "$RUN_DIR"
 COMMAND="${1:-start}"
 MODE_ARG="${2:-auto}"
 
+case "$MODE_ARG" in
+  auto|docker|local) ;;
+  *) echo "Usage: ./scripts/run.sh {start|stop|restart|status|health|logs|doctor} [auto|docker|local]"; exit 1 ;;
+esac
+
 ensure_env_file() {
   [[ -f "$ROOT_DIR/.env" ]] || cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
 }

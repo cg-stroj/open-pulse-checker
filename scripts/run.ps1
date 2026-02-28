@@ -1,14 +1,18 @@
 param(
     [ValidateSet("start", "stop", "restart", "status", "health", "logs")]
     [string]$Command = "start",
-    [ValidateSet("auto", "docker")]
+    [ValidateSet("auto", "docker", "local")]
     [string]$Mode = "auto"
 )
 
 $root = Resolve-Path "$PSScriptRoot/.."
 
-function Compose($args) {
-    docker compose -f "$root/docker-compose.full.yml" --env-file "$root/.env" $args
+if ($Mode -eq "local") {
+    throw "[fail] Windows local mode is not supported yet. Use '-Mode docker' on Windows, or run local mode from Linux/macOS (or WSL)."
+}
+
+function Compose([string[]]$Args) {
+    docker compose -f "$root/docker-compose.full.yml" --env-file "$root/.env" @Args
 }
 
 if (-not (Test-Path "$root/.env") -and $Command -in @("start", "restart", "health")) {
@@ -17,14 +21,14 @@ if (-not (Test-Path "$root/.env") -and $Command -in @("start", "restart", "healt
 }
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    throw "[fail] Docker + Compose are required for run.ps1 (PostgreSQL is mandatory)."
+    throw "[fail] Docker + Compose are required on Windows (local mode unsupported)."
 }
 
 try {
     docker info | Out-Null
     docker compose version | Out-Null
 } catch {
-    throw "[fail] Docker + Compose are required for run.ps1 (PostgreSQL is mandatory)."
+    throw "[fail] Docker + Compose are required on Windows (local mode unsupported)."
 }
 
 $envMap = @{}
@@ -58,7 +62,7 @@ function Wait-Http($name, $url, $timeoutSec = 120) {
 
 function Health-Docker {
     Write-Host "[health] verifying docker stack..."
-    Compose "exec -T postgres pg_isready -U $dbUser -d $dbName" | Out-Null
+    Compose @("exec", "-T", "postgres", "pg_isready", "-U", $dbUser, "-d", $dbName) | Out-Null
     Write-Host "[ok] postgres readiness passed"
     Wait-Http "backend" "http://localhost:$backendPort/api/v1/health"
     Wait-Http "frontend" "http://localhost:$frontendPort"
@@ -67,10 +71,10 @@ function Health-Docker {
 Write-Host "[run] command=$Command mode=docker"
 
 switch ($Command) {
-    "start" { Compose "up -d --build"; Health-Docker }
-    "stop" { Compose "down" }
-    "restart" { Compose "down"; Compose "up -d --build"; Health-Docker }
-    "status" { Compose "ps" }
+    "start" { Compose @("up", "-d", "--build"); Health-Docker }
+    "stop" { Compose @("down") }
+    "restart" { Compose @("down"); Compose @("up", "-d", "--build"); Health-Docker }
+    "status" { Compose @("ps") }
     "health" { Health-Docker }
-    "logs" { Compose "logs --tail=200" }
+    "logs" { Compose @("logs", "--tail=200") }
 }

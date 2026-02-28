@@ -1,11 +1,16 @@
 param(
-    [ValidateSet("auto", "docker")]
+    [ValidateSet("auto", "docker", "local")]
     [string]$Mode = "auto"
 )
 
 $root = Resolve-Path "$PSScriptRoot/.."
 
 Write-Host "[install] Open Pulse Checker install (mode: $Mode)"
+
+if ($Mode -eq "local") {
+    throw "[fail] Windows local mode is not supported yet. Use '-Mode docker' on Windows, or run local mode from Linux/macOS (or WSL)."
+}
+
 & "$PSScriptRoot/preflight-checks.ps1" -Mode $Mode
 
 if (-not (Test-Path "$root/.env")) {
@@ -22,6 +27,11 @@ if (-not (Test-Path "$root/frontend/.env")) {
     Write-Host "[install] Created frontend/.env from template."
 }
 
+(Get-Content "$root/.env") -replace '^OPENPULSE_RUNTIME_MODE=.*', 'OPENPULSE_RUNTIME_MODE=docker' | Set-Content "$root/.env"
+if (-not (Select-String -Path "$root/.env" -Pattern '^OPENPULSE_RUNTIME_MODE=' -Quiet)) {
+    Add-Content "$root/.env" "OPENPULSE_RUNTIME_MODE=docker"
+}
+
 docker compose -f "$root/docker-compose.full.yml" --env-file "$root/.env" pull postgres | Out-Null
 Write-Host "[install] Docker install complete."
-Write-Host "[install] Done. Next: ./scripts/run.sh start (or ./scripts/run.ps1 start)"
+Write-Host "[install] Done. Next: ./scripts/run.sh start docker (or ./scripts/run.ps1 start docker)"

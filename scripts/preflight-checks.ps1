@@ -1,10 +1,14 @@
 param(
-    [ValidateSet("auto", "docker")]
+    [ValidateSet("auto", "docker", "local")]
     [string]$Mode = "auto"
 )
 
 Write-Host "[preflight] Open Pulse Checker checks (mode: $Mode)"
 $failed = $false
+
+if ($Mode -eq "local") {
+    throw "[fail] Windows local mode is not supported yet. Use '-Mode docker' on Windows, or run local mode from Linux/macOS (or WSL)."
+}
 
 function Test-Port($port) {
     try {

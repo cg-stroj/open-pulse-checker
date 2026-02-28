@@ -44,13 +44,26 @@ Windows (PowerShell):
 
 ### 4) Verify health
 
+Linux/macOS:
 ```bash
 ./scripts/run.sh health
+```
+
+Windows (PowerShell):
+```powershell
+./scripts/run.ps1 health
 ```
 
 Default endpoints (from `.env`):
 - API: `http://localhost:8888/api/v1`
 - Frontend: `http://localhost:5173`
+
+Important: in **local mode**, `run.sh` auto-shifts frontend port when the configured one is busy (for example from `5173` to `5180`).
+So your real URL can differ. Always verify current runtime values in `.env`:
+
+```bash
+grep -E '^(OPENPULSE_PORT|OPENPULSE_FRONTEND_PORT)=' .env
+```
 
 ## Install and run modes
 
@@ -95,6 +108,7 @@ Windows (PowerShell):
 ```powershell
 ./scripts/preflight-checks.ps1 [auto|docker|local]
 ```
+(`local` intentionally fails fast on Windows because local runtime provisioning is not yet supported there.)
 
 ### Installation options
 
@@ -111,9 +125,14 @@ Windows (PowerShell):
 ```
 
 Behavior:
-- `auto` (default) chooses Docker when ready, otherwise local mode
-- `docker` forces Docker stack setup
-- `local` forces native backend/frontend + local PostgreSQL setup
+- **Linux/macOS**
+  - `auto` (default) chooses Docker when ready, otherwise local mode
+  - `docker` forces Docker stack setup
+  - `local` forces native backend/frontend + local PostgreSQL setup (installer provisions local PostgreSQL role + database)
+- **Windows (PowerShell scripts)**
+  - `auto` resolves to Docker-only flow
+  - `docker` forces Docker stack setup
+  - `local` is currently **unsupported** and fails fast with an explicit error message
 
 Installer also bootstraps `.env` + `frontend/.env` from examples when missing.
 
@@ -140,6 +159,28 @@ export OPENPULSE_DB_URL='jdbc:postgresql://postgres:5432/openpulse'
 export OPENPULSE_DB_USERNAME='openpulse'
 export OPENPULSE_DB_PASSWORD='strong-secret-from-vault'
 mvn spring-boot:run
+```
+
+## Uninstall / reset
+
+Linux/macOS:
+```bash
+./scripts/uninstall.sh
+```
+
+Windows (PowerShell):
+```powershell
+./scripts/uninstall.ps1
+```
+
+Options:
+- remove Docker DB volume too: `--purge-data` (PowerShell: `-PurgeData`)
+- remove generated `.env` files: `--purge-env` (PowerShell: `-PurgeEnv`)
+- non-interactive: `--yes` (PowerShell: `-Yes`)
+
+Example full reset (including DB data + env files):
+```bash
+./scripts/uninstall.sh --purge-data --purge-env --yes
 ```
 
 ## Basic operations
