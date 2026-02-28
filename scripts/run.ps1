@@ -1,17 +1,10 @@
 param(
-    [ValidateSet("start", "stop", "restart", "status", "health", "logs")]
+    [ValidateSet("start", "stop", "restart", "status", "health", "logs", "reset")]
     [string]$Command = "start",
-    [string]$Mode = "docker"
+    [switch]$PurgeEnv
 )
 
 $root = Resolve-Path "$PSScriptRoot/.."
-
-if ($Mode -in @("auto", "local")) {
-    throw "[fail] Runtime mode '$Mode' is not supported. Open Pulse Checker is Docker-only. Use: ./scripts/run.ps1 -Command $Command -Mode docker"
-}
-if ($Mode -ne "docker") {
-    throw "[fail] Unsupported mode '$Mode'. Usage: ./scripts/run.ps1 -Command <start|stop|restart|status|health|logs> -Mode docker"
-}
 
 function Set-EnvValue {
     param(
@@ -44,22 +37,22 @@ function Compose([string[]]$Args) {
     docker compose -f "$root/docker-compose.full.yml" --env-file "$root/.env" @Args
 }
 
-if (-not (Test-Path "$root/.env")) {
-    Copy-Item "$root/.env.example" "$root/.env"
-    Write-Host "[run] Created .env from template."
-}
-Set-EnvValue -File "$root/.env" -Key "OPENPULSE_RUNTIME_MODE" -Value "docker"
-
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    throw "[fail] Docker + Compose are required for docker runtime."
+    throw "[fail] Docker + Compose are required."
 }
 
 try {
     docker info | Out-Null
     docker compose version | Out-Null
 } catch {
-    throw "[fail] Docker + Compose are required for docker runtime. Start Docker and retry."
+    throw "[fail] Docker + Compose are required. Start Docker and retry."
 }
+
+if (-not (Test-Path "$root/.env")) {
+    Copy-Item "$root/.env.example" "$root/.env"
+    Write-Host "[run] Created .env from template."
+}
+Set-EnvValue -File "$root/.env" -Key "OPENPULSE_RUNTIME_MODE" -Value "docker"
 
 $envMap = @{}
 Get-Content "$root/.env" | ForEach-Object {
@@ -93,13 +86,23 @@ function Health-Docker {
     Wait-Http "frontend" "http://localhost:$frontendPort"
 }
 
-Write-Host "[run] command=$Command mode=docker"
+function Reset-Stack {
+    Compose @("down", "--remove-orphans", "--volumes") | Out-Null
+    if ($PurgeEnv) {
+        Remove-Item "$root/.env" -Force -ErrorAction SilentlyContinue
+        Remove-Item "$root/frontend/.env" -Force -ErrorAction SilentlyContinue
+        Write-Host "[run] removed generated env files (.env, frontend/.env)"
+    }
+}
+
+Write-Host "[run] command=$Command"
 
 switch ($Command) {
     "start" { Compose @("up", "-d", "--build"); Health-Docker }
-    "stop" { Compose @("down") }
-    "restart" { Compose @("down"); Compose @("up", "-d", "--build"); Health-Docker }
+    "stop" { Compose @("down", "--remove-orphans") }
+    "restart" { Compose @("down", "--remove-orphans"); Compose @("up", "-d", "--build"); Health-Docker }
     "status" { Compose @("ps") }
     "health" { Health-Docker }
     "logs" { Compose @("logs", "--tail=200") }
+    "reset" { Reset-Stack }
 }

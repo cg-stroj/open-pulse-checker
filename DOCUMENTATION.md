@@ -18,7 +18,7 @@
 
 ## System architecture
 
-Open Pulse Checker is a backend + frontend platform with persistent storage and optional containerized runtime.
+Open Pulse Checker is a backend + frontend platform with persistent storage and Docker-based runtime.
 
 ### Core runtime components
 
@@ -29,7 +29,7 @@ Open Pulse Checker is a backend + frontend platform with persistent storage and 
   - Admin control endpoints
 - **Frontend (React + TypeScript + Vite)**
   - Operational/admin UX for monitors, incidents, policies, and status pages
-- **Database (PostgreSQL in production; embedded H2 in local fallback)**
+- **Database (PostgreSQL)**
   - Monitor/check/incident state
   - Identity, roles, API keys
   - Alert dispatch history, maintenance windows, audit events
@@ -55,7 +55,7 @@ Open Pulse Checker is a backend + frontend platform with persistent storage and 
 
 ## API overview
 
-All examples assume local default base URL: `http://localhost:8080`.
+All examples assume default base URL: `http://localhost:8080`.
 
 ### Health and platform
 

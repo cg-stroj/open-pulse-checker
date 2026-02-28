@@ -1,19 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODE="${1:-docker}"
+echo "[preflight] Open Pulse Checker Docker checks"
 
-echo "[preflight] Open Pulse Checker checks (mode: $MODE)"
-
-if [[ "$MODE" == "auto" || "$MODE" == "local" ]]; then
-  echo "[fail] Runtime mode '$MODE' is not supported. Open Pulse Checker is Docker-only."
-  echo "[hint] Use: ./scripts/preflight-checks.sh docker"
-  exit 1
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  echo "Usage: ./scripts/preflight-checks.sh"
+  exit 0
 fi
 
-if [[ "$MODE" != "docker" ]]; then
-  echo "[fail] Unsupported mode '$MODE'."
-  echo "Usage: ./scripts/preflight-checks.sh [docker]"
+if [[ $# -ne 0 ]]; then
+  echo "Usage: ./scripts/preflight-checks.sh"
   exit 1
 fi
 

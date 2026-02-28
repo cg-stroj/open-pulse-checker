@@ -2,14 +2,7 @@
 
 Open Pulse Checker is a security-first, self-hosted monitoring platform for uptime checks, incident tracking, alert routing, and public status communication.
 
-## Why teams use it
-
-- **Single operational surface:** monitors, incidents, alert policy, maintenance windows, and status pages.
-- **Security by default:** role-based access, API keys, persistent audit trail, and safe public/private boundaries.
-- **Operator-focused workflows:** manual incident controls, notification suppression/annotation rules, and audit exports.
-- **Production-minded runtime:** PostgreSQL support, distributed scheduler locking, and observability metrics.
-
-## Quickstart (5 minutes)
+## Quickstart (Docker-only)
 
 ### 1) Clone
 
@@ -18,7 +11,19 @@ git clone https://github.com/<your-org>/open-pulse-checker.git
 cd open-pulse-checker
 ```
 
-### 2) Install
+### 2) Preflight (optional, recommended)
+
+Linux/macOS:
+```bash
+./scripts/preflight-checks.sh
+```
+
+Windows (PowerShell):
+```powershell
+./scripts/preflight-checks.ps1
+```
+
+### 3) Install
 
 Linux/macOS:
 ```bash
@@ -30,7 +35,7 @@ Windows (PowerShell):
 ./scripts/install.ps1
 ```
 
-### 3) Start the stack
+### 4) Start
 
 Linux/macOS:
 ```bash
@@ -39,10 +44,10 @@ Linux/macOS:
 
 Windows (PowerShell):
 ```powershell
-./scripts/run.ps1 start
+./scripts/run.ps1 -Command start
 ```
 
-### 4) Verify health
+### 5) Verify health
 
 Linux/macOS:
 ```bash
@@ -51,98 +56,45 @@ Linux/macOS:
 
 Windows (PowerShell):
 ```powershell
-./scripts/run.ps1 health
+./scripts/run.ps1 -Command health
 ```
 
 Default endpoints (from `.env`):
 - API: `http://localhost:8888/api/v1`
 - Frontend: `http://localhost:5173`
 
-## Install and run mode
-
-Open Pulse Checker scripts are **Docker-only** across platforms.
-
-Required:
-- Docker Engine/Desktop (daemon running)
-- Docker Compose v2 (`docker compose`)
-
-Run a preflight check anytime:
+## Deterministic lifecycle commands
 
 Linux/macOS:
-```bash
-./scripts/preflight-checks.sh docker
-```
+- `./scripts/run.sh start`
+- `./scripts/run.sh stop`
+- `./scripts/run.sh restart`
+- `./scripts/run.sh status`
+- `./scripts/run.sh health`
+- `./scripts/run.sh logs`
+- `./scripts/run.sh reset` (full Docker reset: containers + network + volumes)
+- `./scripts/run.sh reset --purge-env` (also removes generated `.env` files)
 
 Windows (PowerShell):
-```powershell
-./scripts/preflight-checks.ps1 -Mode docker
-```
+- `./scripts/run.ps1 -Command start`
+- `./scripts/run.ps1 -Command stop`
+- `./scripts/run.ps1 -Command restart`
+- `./scripts/run.ps1 -Command status`
+- `./scripts/run.ps1 -Command health`
+- `./scripts/run.ps1 -Command logs`
+- `./scripts/run.ps1 -Command reset`
+- `./scripts/run.ps1 -Command reset -PurgeEnv`
 
-Install:
+## Troubleshooting basics
 
-Linux/macOS:
-```bash
-./scripts/install.sh docker
-```
+- If scripts fail with Docker checks, start Docker Desktop/Engine and retry.
+- If startup fails due to ports, update `.env` (`OPENPULSE_PORT`, `OPENPULSE_FRONTEND_PORT`) and rerun `start`.
+- Use `status` for service state and `logs` for diagnostics.
+- Use `reset` when state is inconsistent and you need a clean Docker data reset.
 
-Windows (PowerShell):
-```powershell
-./scripts/install.ps1 -Mode docker
-```
+## Smoke checklist
 
-Run commands:
-- `start`
-- `stop`
-- `restart`
-- `status`
-- `health`
-- `logs`
-
-Examples:
-
-Linux/macOS:
-```bash
-./scripts/run.sh start docker
-./scripts/run.sh status docker
-```
-
-Windows (PowerShell):
-```powershell
-./scripts/run.ps1 -Command start -Mode docker
-./scripts/run.ps1 -Command status -Mode docker
-```
-
-Any `local`/`auto` runtime mode invocation fails fast with explicit guidance.
-
-## Uninstall / reset
-
-Linux/macOS:
-```bash
-./scripts/uninstall.sh
-```
-
-Windows (PowerShell):
-```powershell
-./scripts/uninstall.ps1
-```
-
-Options:
-- remove Docker DB volume too: `--purge-data` (PowerShell: `-PurgeData`)
-- remove generated `.env` files: `--purge-env` (PowerShell: `-PurgeEnv`)
-- non-interactive: `--yes` (PowerShell: `-Yes`)
-
-Example full reset (including DB data + env files):
-```bash
-./scripts/uninstall.sh --purge-data --purge-env --yes
-```
-
-## Basic operations
-
-- **Bootstrap first admin** (fresh DB): enable `OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_*` env vars.
-- **Create and manage monitors** via `/api/v1/monitors` and admin UI modules.
-- **Operate incidents** with acknowledge/annotate/resolve/reopen controls.
-- **Configure alert behavior** with notification policies and maintenance windows.
-- **Publish service health** using public status pages by slug.
+See [`docs/docker-smoke-matrix.md`](./docs/docker-smoke-matrix.md) for the Docker smoke checklist and latest execution evidence.
 
 ## Documentation index
 

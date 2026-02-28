@@ -1,15 +1,13 @@
-param(
-    [string]$Mode = "docker"
-)
-
-Write-Host "[preflight] Open Pulse Checker checks (mode: $Mode)"
+Write-Host "[preflight] Open Pulse Checker Docker checks"
 $failed = $false
 
-if ($Mode -in @("auto", "local")) {
-    throw "[fail] Runtime mode '$Mode' is not supported. Open Pulse Checker is Docker-only. Use: ./scripts/preflight-checks.ps1 -Mode docker"
+if ($args.Count -gt 0 -and $args[0] -in @('-h','--help')) {
+    Write-Host "Usage: ./scripts/preflight-checks.ps1"
+    exit 0
 }
-if ($Mode -ne "docker") {
-    throw "[fail] Unsupported mode '$Mode'. Usage: ./scripts/preflight-checks.ps1 -Mode docker"
+
+if ($args.Count -gt 0) {
+    throw "[fail] Usage: ./scripts/preflight-checks.ps1"
 }
 
 function Test-Port($port) {

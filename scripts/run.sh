@@ -3,35 +3,40 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMMAND="${1:-start}"
-MODE_ARG="${2:-docker}"
+PURGE_ENV=false
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/run.sh {start|stop|restart|status|health|logs} [docker]
+Usage: ./scripts/run.sh {start|stop|restart|status|health|logs|reset} [--purge-env]
 
-Docker-only runtime.
-Any non-docker mode (auto/local) is not supported.
+Docker-only runtime lifecycle:
+  start    Build + start all services
+  stop     Stop and remove containers/network
+  restart  Recreate stack
+  status   Show compose service status
+  health   Run backend/frontend/postgres health checks
+  logs     Tail compose logs
+  reset    Full reset (down --volumes --remove-orphans); optional --purge-env
 EOF
 }
 
 case "$COMMAND" in
-  start|stop|restart|status|health|logs) ;;
+  start|stop|restart|status|health|logs|reset) ;;
   -h|--help) usage; exit 0 ;;
   *) usage; exit 1 ;;
 esac
 
-case "$MODE_ARG" in
-  docker) ;;
-  auto|local)
-    echo "[fail] Runtime mode '$MODE_ARG' is not supported. Open Pulse Checker is Docker-only."
-    echo "[hint] Use: ./scripts/run.sh $COMMAND docker"
-    exit 1
-    ;;
-  *)
-    usage
-    exit 1
-    ;;
-esac
+if [[ "$#" -gt 2 ]]; then
+  usage
+  exit 1
+fi
+
+if [[ "${2:-}" == "--purge-env" ]]; then
+  PURGE_ENV=true
+elif [[ "$#" -eq 2 ]]; then
+  usage
+  exit 1
+fi
 
 ensure_env_file() {
   [[ -f "$ROOT_DIR/.env" ]] || cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
@@ -74,21 +79,30 @@ health_docker() {
   wait_http frontend "http://localhost:${OPENPULSE_FRONTEND_PORT}" 120
 }
 
-ensure_env_file
-set_env_value "$ROOT_DIR/.env" OPENPULSE_RUNTIME_MODE docker
-
-echo "[run] command=$COMMAND mode=docker"
+reset_stack() {
+  compose_cmd down --remove-orphans --volumes || true
+  if [[ "$PURGE_ENV" == true ]]; then
+    rm -f "$ROOT_DIR/.env" "$ROOT_DIR/frontend/.env"
+    echo "[run] removed generated env files (.env, frontend/.env)"
+  fi
+}
 
 if ! docker_ready; then
-  echo "[fail] Docker + Compose are required for docker runtime."
+  echo "[fail] Docker + Compose are required."
   exit 1
 fi
 
+ensure_env_file
+set_env_value "$ROOT_DIR/.env" OPENPULSE_RUNTIME_MODE docker
+
+echo "[run] command=$COMMAND"
+
 case "$COMMAND" in
   start) compose_cmd up -d --build; health_docker ;;
-  stop) compose_cmd down ;;
-  restart) compose_cmd down; compose_cmd up -d --build; health_docker ;;
+  stop) compose_cmd down --remove-orphans ;;
+  restart) compose_cmd down --remove-orphans; compose_cmd up -d --build; health_docker ;;
   status) compose_cmd ps ;;
   health) health_docker ;;
   logs) compose_cmd logs --tail=200 ;;
+  reset) reset_stack ;;
 esac

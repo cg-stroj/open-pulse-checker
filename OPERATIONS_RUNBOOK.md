@@ -1,26 +1,27 @@
 # Operations Runbook
 
-## One-command stack operations (Ticket #59)
+## One-command Docker lifecycle
 
-Primary full-stack path (Docker):
+Primary bootstrap path:
 ```bash
 ./scripts/install.sh
 ./scripts/run.sh start
 ./scripts/run.sh health
 ```
 
-Control helpers:
+Deterministic lifecycle controls:
 ```bash
 ./scripts/run.sh status
 ./scripts/run.sh logs
 ./scripts/run.sh restart
 ./scripts/run.sh stop
+./scripts/run.sh reset
 ```
 
-Local fallback (when Docker is unavailable):
-- `./scripts/run.sh start local`
-- Starts backend + frontend with embedded H2 database.
-- Keeps legacy manual run modes available (`mvn spring-boot:run`, `npm run dev`).
+Optional full env cleanup:
+```bash
+./scripts/run.sh reset --purge-env
+```
 
 ## Backup before deploy/migration
 1. Put deployment in maintenance window.
@@ -127,7 +128,7 @@ Behavior:
 - `openpulse.alerts.dlq`
 - `openpulse.alerts.dlq.replay`
 
-### Alert triage playbooks
+## Alert triage playbooks
 
 #### 1) Scheduler lock contention high (warning)
 1. Check node count and scheduler cadence; verify no accidental over-scaling.
