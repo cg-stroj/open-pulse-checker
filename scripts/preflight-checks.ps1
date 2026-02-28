@@ -1,13 +1,15 @@
 param(
-    [ValidateSet("auto", "docker", "local")]
-    [string]$Mode = "auto"
+    [string]$Mode = "docker"
 )
 
 Write-Host "[preflight] Open Pulse Checker checks (mode: $Mode)"
 $failed = $false
 
-if ($Mode -eq "local") {
-    throw "[fail] Windows local mode is not supported yet. Use '-Mode docker' on Windows, or run local mode from Linux/macOS (or WSL)."
+if ($Mode -in @("auto", "local")) {
+    throw "[fail] Runtime mode '$Mode' is not supported. Open Pulse Checker is Docker-only. Use: ./scripts/preflight-checks.ps1 -Mode docker"
+}
+if ($Mode -ne "docker") {
+    throw "[fail] Unsupported mode '$Mode'. Usage: ./scripts/preflight-checks.ps1 -Mode docker"
 }
 
 function Test-Port($port) {
@@ -25,6 +27,7 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     Write-Host "[fail] Docker not found. Install Docker Desktop."
     $failed = $true
 } else {
+    Write-Host "[ok] docker found"
     try {
         docker info | Out-Null
         Write-Host "[ok] Docker daemon reachable"
