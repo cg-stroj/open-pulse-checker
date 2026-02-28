@@ -9,3 +9,12 @@ spring:
       replace: none
   flyway:
     enabled: true
+
+openpulse:
+  scheduler:
+    poll-interval-ms: 600000
+  rate-limit:
+    sensitive:
+      capacity: 100000
+      refill-tokens: 100000
+      refill-period-seconds: 1
