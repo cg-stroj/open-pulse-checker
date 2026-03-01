@@ -13,6 +13,12 @@ spring:
 openpulse:
   scheduler:
     poll-interval-ms: 600000
+  security:
+    bootstrap-admin:
+      enabled: true
+      emergency-fallback-enabled: true
+      username: admin
+      password: admin-change-me
   rate-limit:
     sensitive:
       capacity: 100000
