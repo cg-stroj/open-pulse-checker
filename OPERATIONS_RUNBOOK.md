@@ -23,6 +23,26 @@ Optional full env cleanup:
 ./scripts/run.sh reset --purge-env
 ```
 
+## Admin onboarding and emergency bootstrap fallback
+
+Default path (recommended):
+1. Use onboarding endpoints (`GET /api/v1/setup/status`, `POST /api/v1/setup/first-admin`) to create the first admin.
+2. Keep bootstrap admin fallback flags disabled.
+
+Emergency-only fallback (break-glass):
+1. Set both flags to `true` before startup:
+   - `OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_ENABLED=true`
+   - `OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_EMERGENCY_FALLBACK_ENABLED=true`
+2. Provide temporary credentials via:
+   - `OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_USERNAME`
+   - `OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_PASSWORD`
+3. Restart service and perform recovery login.
+4. Immediately set both flags back to `false` and restart.
+
+Guardrails:
+- Fallback is blocked after setup completion (`setup_state.setup_locked=true`).
+- Fallback is blocked if any `ADMIN` role already exists.
+
 ## Backup before deploy/migration
 1. Put deployment in maintenance window.
 2. Verify target image/tag and migration scripts to be applied.

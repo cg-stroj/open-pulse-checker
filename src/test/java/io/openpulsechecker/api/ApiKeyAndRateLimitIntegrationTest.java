@@ -104,4 +104,13 @@ class ApiKeyAndRateLimitIntegrationTest {
         mockMvc.perform(post("/api/v1/monitors").header("X-API-Key", "svc-admin.secret-admin")
                         .contentType(MediaType.APPLICATION_JSON).content(payload)).andExpect(status().isCreated());
     }
+
+    @Test
+    void setupEndpointsAreRateLimitedAsSensitive() throws Exception {
+        mockMvc.perform(get("/api/v1/setup/status")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/setup/status")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/setup/status"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"));
+    }
 }

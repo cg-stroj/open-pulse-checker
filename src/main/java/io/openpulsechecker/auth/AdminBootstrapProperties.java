@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "openpulse.security.bootstrap-admin")
 public record AdminBootstrapProperties(
         boolean enabled,
+        boolean emergencyFallbackEnabled,
         String username,
         String password
 ) {

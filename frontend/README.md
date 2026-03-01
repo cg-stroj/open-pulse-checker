@@ -33,8 +33,11 @@ Default frontend URL: `http://localhost:5173`
 
 ## Auth/session behavior
 - Backend auth model is reused as-is (`HTTP Basic` + `ADMIN` role checks on `/api/v1/admin/**`).
+- On first run, frontend checks `/api/v1/setup/status` and redirects unauthenticated users to `/setup` while setup is required.
+- Setup wizard (`/setup`) creates the first admin through `/api/v1/setup/first-admin`, then returns to `/login`.
+- Once setup is locked/completed, `/setup` is no longer accessible and redirects to sign-in (or dashboard if already signed in).
 - Frontend sign-in validates credentials against an admin endpoint and then keeps an in-tab session.
-- Use a bootstrap/admin user from backend config (see root `README.md` bootstrap admin section).
+- Use a bootstrap/admin user from backend config (see root `README.md` bootstrap admin section) when setup is already completed.
 - Signing out clears tab session immediately.
 
 ## Delivered modules

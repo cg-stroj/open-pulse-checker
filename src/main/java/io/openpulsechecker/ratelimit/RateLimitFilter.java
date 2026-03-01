@@ -43,6 +43,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String method = request.getMethod();
         String uri = request.getRequestURI();
         if (uri.startsWith("/api/v1/auth")) return true;
+        if (uri.startsWith("/api/v1/setup")) return true;
         if (!uri.startsWith("/api/v1/monitors")) return false;
         if ("POST".equals(method) || "PATCH".equals(method)) return true;
         return "POST".equals(method) && uri.endsWith("/run-check");

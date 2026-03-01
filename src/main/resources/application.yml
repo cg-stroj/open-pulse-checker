@@ -53,6 +53,7 @@ openpulse:
     auth-mode: db
     bootstrap-admin:
       enabled: false
+      emergency-fallback-enabled: false
       username: admin
       password: ""
     bootstrap-api-key:
@@ -60,6 +61,8 @@ openpulse:
       key-id: ""
       role: ADMIN
       secret: ""
+    setup:
+      token-ttl-seconds: 900
   rate-limit:
     sensitive:
       capacity: 10

@@ -1,11 +1,16 @@
 import { type FormEvent, useState } from 'react'
+import { Navigate, useLocation } from 'react-router-dom'
+import { useAuth } from '../app/auth-hooks'
+import { LoadingState } from '../components/states/States'
 import { Button } from '../components/ui/Button'
 import { Field, TextInput } from '../components/ui/FormControls'
-import { useAuth } from '../app/auth-hooks'
+import { useSetupStatusQuery } from '../lib/api/setup'
 
 export function LoginPage() {
   const auth = useAuth()
-  const [username, setUsername] = useState('')
+  const location = useLocation()
+  const setupStatusQuery = useSetupStatusQuery(true)
+  const [username, setUsername] = useState(() => (location.state as { presetUsername?: string } | null)?.presetUsername ?? '')
   const [password, setPassword] = useState('')
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -14,6 +19,18 @@ export function LoginPage() {
     if (ok) {
       setPassword('')
     }
+  }
+
+  if (setupStatusQuery.isLoading) {
+    return (
+      <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center p-4">
+        <LoadingState title="Loading sign in" description="Checking if initial setup is already completed." />
+      </div>
+    )
+  }
+
+  if (setupStatusQuery.data?.setupRequired && !setupStatusQuery.data.setupLocked) {
+    return <Navigate to="/setup" replace />
   }
 
   return (

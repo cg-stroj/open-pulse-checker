@@ -5,6 +5,7 @@ import io.openpulsechecker.apikey.ApiKeyBootstrapProperties;
 import io.openpulsechecker.auth.AdminBootstrapProperties;
 import io.openpulsechecker.ratelimit.RateLimitFilter;
 import io.openpulsechecker.ratelimit.RateLimitProperties;
+import io.openpulsechecker.setup.SetupProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,7 +27,8 @@ import java.util.List;
         SecurityProperties.class,
         AdminBootstrapProperties.class,
         ApiKeyBootstrapProperties.class,
-        RateLimitProperties.class
+        RateLimitProperties.class,
+        SetupProperties.class
 })
 public class SecurityConfig {
 
@@ -42,6 +44,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/index.html", "/assets/**", "/favicon.ico", "/manifest.json").permitAll()
                         .requestMatchers("/api/v1/health", "/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/api/v1/setup/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/public/status-pages/**").permitAll()
                         .requestMatchers("/actuator/metrics/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/admin/**", "/api/v2/admin/**").hasRole("ADMIN")

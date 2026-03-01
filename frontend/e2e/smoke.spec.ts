@@ -2,7 +2,13 @@ import { expect, test, type Page } from '@playwright/test'
 
 const AUTH_STORAGE_KEY = 'opc.admin.auth'
 
-async function mockApi(page: Page) {
+interface SetupMockState {
+  setupRequired: boolean
+  setupLocked: boolean
+  setupToken: string | null
+}
+
+async function mockApi(page: Page, setupState: SetupMockState = { setupRequired: false, setupLocked: true, setupToken: null }) {
   await page.route('**/actuator/metrics/**', async (route) => {
     const url = new URL(route.request().url())
     const metricName = decodeURIComponent(url.pathname.split('/actuator/metrics/')[1] ?? '')
@@ -58,6 +64,32 @@ async function mockApi(page: Page) {
     const authHeader = route.request().headers()['authorization']
 
     const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
+
+    if (pathname === '/api/v1/setup/status' && method === 'GET') {
+      return json({
+        setupRequired: setupState.setupRequired,
+        setupLocked: setupState.setupLocked,
+        setupToken: setupState.setupToken,
+        setupTokenExpiresAt: setupState.setupToken ? new Date(Date.now() + 600_000).toISOString() : null,
+      })
+    }
+
+    if (pathname === '/api/v1/setup/first-admin' && method === 'POST') {
+      const payload = JSON.parse(route.request().postData() || '{}')
+
+      if (setupState.setupLocked || !setupState.setupRequired) {
+        return json({ error: 'Setup is already completed' }, 409)
+      }
+
+      if (!setupState.setupToken || payload.setupToken !== setupState.setupToken) {
+        return json({ error: 'Invalid or expired setup token' }, 400)
+      }
+
+      setupState.setupRequired = false
+      setupState.setupLocked = true
+      setupState.setupToken = null
+      return json({ username: payload.username }, 201)
+    }
 
     const requiresAuth = pathname.startsWith('/api/v1/admin') || pathname === '/api/v1/monitors' || pathname === '/api/v1/status-pages'
     if (requiresAuth && !authHeader) {
@@ -259,4 +291,30 @@ test('key action flow smoke: create status page', async ({ page }) => {
   await page.getByRole('button', { name: 'Create page' }).click()
 
   await expect(page.getByText('Status page created.')).toBeVisible()
+})
+
+test('first-run setup wizard creates admin and redirects to sign in', async ({ page }) => {
+  await mockApi(page, { setupRequired: true, setupLocked: false, setupToken: 'setup-token-1' })
+
+  await page.goto('/login')
+  await expect(page.getByRole('heading', { name: 'Initial admin setup' })).toBeVisible()
+
+  await page.getByLabel('Owner email or username').fill('owner@example.com')
+  await page.getByLabel('Password', { exact: true }).fill('very-secure-password')
+  await page.getByLabel('Confirm password').fill('very-secure-password')
+  await page.getByLabel('I understand this account receives full administrative access and must follow organization policy.').check()
+  await page.getByLabel('I confirm the credentials are stored securely and not shared in plain text.').check()
+
+  await page.getByRole('button', { name: 'Complete setup' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Admin sign in' })).toBeVisible()
+})
+
+test('setup route lockout redirects when onboarding is already complete', async ({ page }) => {
+  await mockApi(page, { setupRequired: false, setupLocked: true, setupToken: null })
+
+  await page.goto('/setup')
+
+  await expect(page).toHaveURL(/\/login$/)
+  await expect(page.getByRole('heading', { name: 'Admin sign in' })).toBeVisible()
 })

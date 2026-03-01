@@ -9,6 +9,7 @@ import { MonitorsPage } from '../pages/MonitorsPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { NotificationPoliciesPage } from '../pages/NotificationPoliciesPage'
 import { SettingsPage } from '../pages/SettingsPage'
+import { SetupPage } from '../pages/SetupPage'
 import { StatusPagesPage } from '../pages/StatusPagesPage'
 import { UnauthorizedPage } from '../pages/UnauthorizedPage'
 import { AppErrorBoundary } from './error-boundary'
@@ -20,6 +21,7 @@ export function AppRouter() {
       <Routes>
         <Route element={<LoginRoute />}>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/setup" element={<SetupPage />} />
         </Route>
 
         <Route element={<ProtectedRoute />}>

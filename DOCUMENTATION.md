@@ -40,7 +40,7 @@ Open Pulse Checker is a backend + frontend platform with persistent storage and 
 - `service`: business rules (check scheduling, incident transitions, policy resolution)
 - `schedulerlock`: DB-backed lease locking for multi-instance safe scheduling
 - `alerting`: webhook channel dispatch, retry/backoff, idempotency, DLQ replay
-- `auth`: user/role auth + API key auth + bootstrap admin init
+- `auth`: user/role auth + API key auth + emergency-only bootstrap admin fallback init
 - `audit`: persistent event trail for auth and privileged writes
 - `persistence`: JPA model + Flyway migrations
 
@@ -63,6 +63,11 @@ All examples assume default base URL: `http://localhost:8080`.
 - `GET /actuator/health`
 - `GET /actuator/health/readiness`
 - `GET /actuator/metrics`
+
+### First-run setup APIs
+
+- `GET /api/v1/setup/status` (public; returns setup lock state and one-time setup token while setup is still open)
+- `POST /api/v1/setup/first-admin` (public; requires setup token, creates initial `ADMIN`, then hard-locks setup)
 
 ### Monitor APIs
 
@@ -134,6 +139,8 @@ List APIs support optional query ergonomics:
 
 - Admin endpoints are restricted under admin routes.
 - API key secrets are not stored in plaintext; hashed secret values are persisted.
+- First-run setup token values are issued as one-time secrets, stored only as hashes, and enforced with expiration.
+- Setup is hard-locked once an initial `ADMIN` exists.
 - Auth success/failure and privileged writes are captured in audit logs.
 - Sensitive endpoints include rate limiting with `429` + retry hints.
 

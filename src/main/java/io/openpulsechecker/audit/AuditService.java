@@ -5,6 +5,8 @@ import java.time.Instant;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuditService {
@@ -22,6 +24,7 @@ public class AuditService {
         log(username, action, target, result, details);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void log(String username, String action, String target, String result, String details) {
         AuditEventEntity event = new AuditEventEntity();
         event.setUsername(username == null || username.isBlank() ? "anonymous" : username);

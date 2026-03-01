@@ -16,15 +16,19 @@
 ## Phase 1.2 controls
 - DB-backed identity (`app_users`, `user_roles`) with bcrypt password hashing
 - Role-based authorization (`ADMIN`/`VIEWER`) enforced at endpoint level
-- Guarded bootstrap admin initializer for initial access provisioning
+- Guarded bootstrap admin emergency fallback initializer (opt-in, disabled by default)
 - Persistent audit logging (`audit_events`) for auth success/failure and write actions
 - Distributed scheduler safety via DB lock leases (`scheduler_locks`) with expiry/steal
 - Alert delivery resilience with bounded retry/backoff and idempotency dedupe (`dispatched_alerts`)
 
 ## Credential handling
 - Do not commit credentials or bootstrap passwords
-- Use environment variables/secrets manager for bootstrap admin values
-- Disable bootstrap admin after initial provisioning
+- Prefer onboarding flow (`/api/v1/setup/*`) for first admin provisioning
+- Bootstrap admin env fallback is emergency-only and disabled by default
+- Enabling fallback requires both `OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_ENABLED=true`
+  and `OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_EMERGENCY_FALLBACK_ENABLED=true`
+- Emergency fallback is blocked once setup is locked or any `ADMIN` role exists
+- Use environment variables/secrets manager for fallback credentials and disable immediately after use
 - Rotate credentials after suspected disclosure
 
 ## Lock safety assumptions

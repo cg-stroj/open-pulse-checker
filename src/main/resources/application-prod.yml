@@ -17,3 +17,8 @@ openpulse:
   security:
     bootstrap-admin:
       enabled: ${OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_ENABLED:false}
+      emergency-fallback-enabled: ${OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_EMERGENCY_FALLBACK_ENABLED:false}
+      username: ${OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_USERNAME:admin}
+      password: ${OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_PASSWORD:}
+    setup:
+      token-ttl-seconds: ${OPENPULSE_SECURITY_SETUP_TOKEN_TTL_SECONDS:900}
