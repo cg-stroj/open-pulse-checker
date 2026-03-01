@@ -8,7 +8,16 @@ interface SetupMockState {
   setupToken: string | null
 }
 
-async function mockApi(page: Page, setupState: SetupMockState = { setupRequired: false, setupLocked: true, setupToken: null }) {
+interface SetupMockOptions {
+  forceExpiredToken?: boolean
+  forceConflictOnCreate?: boolean
+}
+
+async function mockApi(
+  page: Page,
+  setupState: SetupMockState = { setupRequired: false, setupLocked: true, setupToken: null },
+  options: SetupMockOptions = {},
+) {
   await page.route('**/actuator/metrics/**', async (route) => {
     const url = new URL(route.request().url())
     const metricName = decodeURIComponent(url.pathname.split('/actuator/metrics/')[1] ?? '')
@@ -77,11 +86,15 @@ async function mockApi(page: Page, setupState: SetupMockState = { setupRequired:
     if (pathname === '/api/v1/setup/first-admin' && method === 'POST') {
       const payload = JSON.parse(route.request().postData() || '{}')
 
-      if (setupState.setupLocked || !setupState.setupRequired) {
+      if (options.forceConflictOnCreate || setupState.setupLocked || !setupState.setupRequired) {
         return json({ error: 'Setup is already completed' }, 409)
       }
 
-      if (!setupState.setupToken || payload.setupToken !== setupState.setupToken) {
+      if (!payload.password || payload.password.length < 12) {
+        return json({ error: 'password size must be between 12 and 200' }, 400)
+      }
+
+      if (options.forceExpiredToken || !setupState.setupToken || payload.setupToken !== setupState.setupToken) {
         return json({ error: 'Invalid or expired setup token' }, 400)
       }
 
@@ -317,4 +330,55 @@ test('setup route lockout redirects when onboarding is already complete', async 
 
   await expect(page).toHaveURL(/\/login$/)
   await expect(page.getByRole('heading', { name: 'Admin sign in' })).toBeVisible()
+})
+
+test('setup wizard shows weak password validation before submit', async ({ page }) => {
+  await mockApi(page, { setupRequired: true, setupLocked: false, setupToken: 'setup-token-weak' })
+
+  await page.goto('/login')
+  await expect(page.getByRole('heading', { name: 'Initial admin setup' })).toBeVisible()
+
+  await page.getByLabel('Owner email or username').fill('owner@example.com')
+  await page.getByLabel('Password', { exact: true }).fill('shortpass')
+  await page.getByLabel('Confirm password').fill('shortpass')
+  await page.getByLabel('I understand this account receives full administrative access and must follow organization policy.').check()
+  await page.getByLabel('I confirm the credentials are stored securely and not shared in plain text.').check()
+
+  await page.getByRole('button', { name: 'Complete setup' }).click()
+
+  await expect(page.getByText('Password must be at least 12 characters long.')).toBeVisible()
+})
+
+test('setup wizard surfaces expired token API errors', async ({ page }) => {
+  await mockApi(page, { setupRequired: true, setupLocked: false, setupToken: 'setup-token-expired' }, { forceExpiredToken: true })
+
+  await page.goto('/login')
+  await expect(page.getByRole('heading', { name: 'Initial admin setup' })).toBeVisible()
+
+  await page.getByLabel('Owner email or username').fill('owner@example.com')
+  await page.getByLabel('Password', { exact: true }).fill('very-secure-password')
+  await page.getByLabel('Confirm password').fill('very-secure-password')
+  await page.getByLabel('I understand this account receives full administrative access and must follow organization policy.').check()
+  await page.getByLabel('I confirm the credentials are stored securely and not shared in plain text.').check()
+
+  await page.getByRole('button', { name: 'Complete setup' }).click()
+
+  await expect(page.getByText('Invalid or expired setup token')).toBeVisible()
+})
+
+test('setup wizard surfaces duplicate setup attempt conflict', async ({ page }) => {
+  await mockApi(page, { setupRequired: true, setupLocked: false, setupToken: 'setup-token-conflict' }, { forceConflictOnCreate: true })
+
+  await page.goto('/login')
+  await expect(page.getByRole('heading', { name: 'Initial admin setup' })).toBeVisible()
+
+  await page.getByLabel('Owner email or username').fill('owner@example.com')
+  await page.getByLabel('Password', { exact: true }).fill('very-secure-password')
+  await page.getByLabel('Confirm password').fill('very-secure-password')
+  await page.getByLabel('I understand this account receives full administrative access and must follow organization policy.').check()
+  await page.getByLabel('I confirm the credentials are stored securely and not shared in plain text.').check()
+
+  await page.getByRole('button', { name: 'Complete setup' }).click()
+
+  await expect(page.getByText('Setup is already completed and locked. Please sign in with an existing admin account.')).toBeVisible()
 })

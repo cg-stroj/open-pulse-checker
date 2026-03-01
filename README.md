@@ -95,7 +95,8 @@ Windows (PowerShell):
 
 ## Smoke checklist
 
-See [`docs/docker-smoke-matrix.md`](./docs/docker-smoke-matrix.md) for the Docker smoke checklist and latest execution evidence.
+- Docker lifecycle smoke: [`docs/docker-smoke-matrix.md`](./docs/docker-smoke-matrix.md)
+- Onboarding QA regression matrix (Ticket #84): [`docs/onboarding-qa-matrix-report-2026-03-01.md`](./docs/onboarding-qa-matrix-report-2026-03-01.md)
 
 ## Documentation index
 

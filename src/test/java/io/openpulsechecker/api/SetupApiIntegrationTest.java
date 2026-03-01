@@ -124,6 +124,26 @@ class SetupApiIntegrationTest {
     }
 
     @Test
+    void weakPasswordIsRejectedByValidation() throws Exception {
+        String statusPayload = mockMvc.perform(get("/api/v1/setup/status"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String token = objectMapper.readTree(statusPayload).get("setupToken").asText();
+
+        String createPayload = """
+                {"username":"owner4","password":"weakpass","setupToken":"%s"}
+                """.formatted(token);
+
+        mockMvc.perform(post("/api/v1/setup/first-admin")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createPayload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString("password")));
+    }
+
+    @Test
     void setupActionsAreAudited() throws Exception {
         mockMvc.perform(get("/api/v1/setup/status")).andExpect(status().isOk());
 
