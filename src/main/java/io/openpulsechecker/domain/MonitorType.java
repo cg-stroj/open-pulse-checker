@@ -1,5 +1,7 @@
 package io.openpulsechecker.domain;
 
 public enum MonitorType {
-    HTTP
+    HTTP,
+    TCP,
+    PING
 }

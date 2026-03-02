@@ -1,5 +1,6 @@
 package io.openpulsechecker.persistence;
 
+import io.openpulsechecker.domain.HttpMethod;
 import io.openpulsechecker.domain.MonitorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -38,6 +39,13 @@ public class MonitorEntity {
     @Column(nullable = false)
     private int timeoutMs;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private HttpMethod httpMethod;
+
+    @Column(length = 255)
+    private String expectedResponseKeyword;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -73,6 +81,10 @@ public class MonitorEntity {
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public int getTimeoutMs() { return timeoutMs; }
     public void setTimeoutMs(int timeoutMs) { this.timeoutMs = timeoutMs; }
+    public HttpMethod getHttpMethod() { return httpMethod; }
+    public void setHttpMethod(HttpMethod httpMethod) { this.httpMethod = httpMethod; }
+    public String getExpectedResponseKeyword() { return expectedResponseKeyword; }
+    public void setExpectedResponseKeyword(String expectedResponseKeyword) { this.expectedResponseKeyword = expectedResponseKeyword; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

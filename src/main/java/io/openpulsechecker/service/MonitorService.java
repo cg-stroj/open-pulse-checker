@@ -39,7 +39,7 @@ public class MonitorService {
 
     @Transactional
     public MonitorResponse create(CreateMonitorRequest request) {
-        validateTargetUrl(request.targetUrl());
+        validateTargetUrl(request.targetUrl(), request.type());
 
         MonitorEntity entity = new MonitorEntity();
         entity.setName(request.name().trim());
@@ -48,6 +48,14 @@ public class MonitorService {
         entity.setIntervalSec(request.intervalSec());
         entity.setEnabled(request.enabled() == null || request.enabled());
         entity.setTimeoutMs(request.timeoutMs());
+        
+        if (request.type() == MonitorType.HTTP) {
+            entity.setHttpMethod(request.httpMethod() != null ? request.httpMethod() : io.openpulsechecker.domain.HttpMethod.GET);
+            entity.setExpectedResponseKeyword(request.expectedResponseKeyword() != null ? request.expectedResponseKeyword().trim() : null);
+        } else {
+            entity.setHttpMethod(null);
+            entity.setExpectedResponseKeyword(null);
+        }
 
         MonitorEntity saved = monitorRepository.save(entity);
         auditService.log("MONITOR_CREATE", "monitor:" + saved.getId(), "SUCCESS", saved.getName());
@@ -101,7 +109,7 @@ public class MonitorService {
 
     @Transactional
     public MonitorResponse update(UUID id, UpdateMonitorRequest request) {
-        validateTargetUrl(request.targetUrl());
+        validateTargetUrl(request.targetUrl(), request.type());
 
         MonitorEntity entity = getEntity(id);
         entity.setName(request.name().trim());
@@ -110,6 +118,14 @@ public class MonitorService {
         entity.setIntervalSec(request.intervalSec());
         entity.setEnabled(request.enabled());
         entity.setTimeoutMs(request.timeoutMs());
+
+        if (request.type() == MonitorType.HTTP) {
+            entity.setHttpMethod(request.httpMethod() != null ? request.httpMethod() : io.openpulsechecker.domain.HttpMethod.GET);
+            entity.setExpectedResponseKeyword(request.expectedResponseKeyword() != null ? request.expectedResponseKeyword().trim() : null);
+        } else {
+            entity.setHttpMethod(null);
+            entity.setExpectedResponseKeyword(null);
+        }
 
         MonitorEntity saved = monitorRepository.save(entity);
         auditService.log("MONITOR_UPDATE", "monitor:" + saved.getId(), "SUCCESS", saved.getName());
@@ -127,11 +143,22 @@ public class MonitorService {
         return toResponse(saved, lastCheck);
     }
 
-    private void validateTargetUrl(String rawUrl) {
+    private void validateTargetUrl(String rawUrl, MonitorType type) {
+        if (type == MonitorType.TCP) {
+            try {
+                String[] parts = rawUrl.split(":");
+                if (parts.length != 2) throw new IllegalArgumentException("TCP target must be host:port");
+                Integer.parseInt(parts[1]);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("TCP target must be host:port (e.g. localhost:5432)");
+            }
+            return;
+        }
+
         URI uri = URI.create(rawUrl);
         String scheme = uri.getScheme();
         if (scheme == null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
-            throw new IllegalArgumentException("Only HTTP/HTTPS target URLs are allowed.");
+            throw new IllegalArgumentException("Only HTTP/HTTPS target URLs are allowed for HTTP/PING monitors.");
         }
         if (uri.getHost() == null || uri.getHost().isBlank()) {
             throw new IllegalArgumentException("Target URL host is required.");
@@ -170,6 +197,8 @@ public class MonitorService {
                 entity.getIntervalSec(),
                 entity.isEnabled(),
                 entity.getTimeoutMs(),
+                entity.getHttpMethod(),
+                entity.getExpectedResponseKeyword(),
                 latestCheck != null ? latestCheck.getCheckedAt() : null,
                 latestCheck != null ? latestCheck.getStatus() : null,
                 latestCheck != null ? latestCheck.getStatusCode() : null,
