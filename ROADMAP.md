@@ -57,6 +57,33 @@ This roadmap is a chronological delivery record for Open Pulse Checker.
 - Delivered modules: dashboard, monitors, incidents, maintenance windows, notification policies, status pages, audit explorer.
 - Accessibility/responsiveness baseline and deterministic smoke E2E quality gate.
 
+### Phase 2.5 · First-run onboarding hardening (NEW)
+- Backend setup foundation delivered (`/api/v1/setup/status`, `/api/v1/setup/first-admin`) with one-time token + expiry.
+- Setup lock semantics enforced after first admin creation.
+- Frontend first-run setup wizard delivered with lockout behavior after onboarding completion.
+- Bootstrap env fallback reduced to emergency-only path (disabled by default, explicit dual-flag gate, blocked post-setup).
+- QA regression matrix delivered for onboarding positive + negative flows.
+
+## What still needs to be completed (operator-level) to be fully functional for first monitor
+
+The product features are delivered; remaining work is mainly **deployment/operations execution** on target host:
+
+1. **Target-host clean run proof (Docker available):**
+   - Execute full lifecycle on the host where you will run it long-term: `install -> start -> health -> login`.
+2. **Production `.env` finalization:**
+   - Confirm final ports, API base URL, and secure admin credentials policy for your environment.
+3. **First-admin onboarding in live instance:**
+   - Complete wizard once, verify setup lock, then verify standard login works.
+4. **Create first monitor in UI:**
+   - Add monitor target URL, interval, timeout, and enabled state.
+   - Run first manual check and confirm incident/health behavior.
+5. **Alert route verification:**
+   - Validate notification channel (webhook/other configured route) with one controlled alert scenario.
+6. **Public status page verification (if used):**
+   - Create/attach monitor, validate slug/public visibility behavior.
+7. **Release gate closeout (recommended):**
+   - Run final smoke checklist + keep rollback notes from `OPERATIONS_RUNBOOK.md` ready.
+
 ## Concise future direction
 
 - Deepen incident history and timeline read APIs for richer RCA workflows.

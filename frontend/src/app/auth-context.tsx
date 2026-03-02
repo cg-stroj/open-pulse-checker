@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const authorizationHeader = encodeBasicAuthorization(cleanedUsername, password)
           const nextSession = { username: cleanedUsername, authorizationHeader }
 
-          await apiClient.get('/admin/incidents', {
+          await apiClient.get('/admin/auth/login', {
             headers: {
               Authorization: authorizationHeader,
             },

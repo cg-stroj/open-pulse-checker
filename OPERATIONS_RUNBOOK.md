@@ -1,5 +1,46 @@
 # Operations Runbook
 
+## QA-first delivery protocol (MANDATORY)
+
+For this project, all work follows this gate:
+
+1. **Implement on feature branch**
+   - Never develop directly on `main`.
+2. **Local technical gate (agent)**
+   - Backend tests pass.
+   - Frontend lint/build/e2e smoke pass.
+   - Runtime health (`./scripts/run.sh health`) is green.
+3. **Manual UI acceptance (BOS)**
+   - BOS verifies behavior in UI on running instance.
+   - No push to GitHub before BOS says explicit "OK to push".
+4. **Push/merge gate**
+   - Only after BOS acceptance and clean working tree.
+   - Ticket moves to `Ready`; BOS decides `Done`.
+
+Release command baseline before BOS acceptance:
+```bash
+mvn test
+cd frontend && npm run lint && npm run build && npm run test:e2e:smoke && cd ..
+./scripts/run.sh health
+```
+
+## Assistant runtime access model (Docker control)
+
+Goal: assistant can run `status/logs/restart/health` directly for faster diagnostics.
+
+Recommended host setup:
+1. Add runtime user to docker group (or equivalent secure socket access policy).
+2. Re-login shell/session to apply group membership.
+3. Verify access:
+```bash
+docker ps
+docker compose -f docker-compose.full.yml ps
+```
+
+Security note:
+- Docker socket access is privileged. Use only on trusted operator host.
+- If group access is not allowed, use operator-executed commands from this runbook as fallback.
+
 ## One-command Docker lifecycle
 
 Primary bootstrap path:
@@ -66,6 +107,7 @@ Guardrails:
 - Flyway runs at startup with `validate-on-migrate=true` and `clean-disabled=true`.
 - Never use Flyway clean in production.
 - Apply schema changes with reviewed SQL migrations committed under `src/main/resources/db/migration`.
+- `V10__setup_state_id_integer.sql` automatically upgrades legacy `setup_state.id` from `SMALLINT` to `INTEGER` at startup (no manual SQL required).
 - Phase 2.1 adds `V5__phase2_1_notification_policy.sql` and `V6__phase2_1_maintenance_windows.sql`.
 - Post-deploy checks:
   - verify policy scope uniqueness and dispatch metadata indexes

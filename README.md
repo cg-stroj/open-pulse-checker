@@ -98,6 +98,16 @@ Windows (PowerShell):
 - Docker lifecycle smoke: [`docs/docker-smoke-matrix.md`](./docs/docker-smoke-matrix.md)
 - Onboarding QA regression matrix (Ticket #84): [`docs/onboarding-qa-matrix-report-2026-03-01.md`](./docs/onboarding-qa-matrix-report-2026-03-01.md)
 
+## Development workflow (local QA-first)
+
+For active development in this private server setup:
+- work on feature branches,
+- run local tests + health checks,
+- BOS validates manually in UI,
+- only then push to GitHub.
+
+Runbook reference: [`OPERATIONS_RUNBOOK.md`](./OPERATIONS_RUNBOOK.md)
+
 ## Documentation index
 
 - Product + setup overview: **this README**

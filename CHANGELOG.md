@@ -13,5 +13,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - DB migration `V8__audit_events_query_indexes.sql` to add query-supporting indexes for audit workloads.
 
 ### Changed
+- Added Flyway migration `V10__setup_state_id_integer.sql` to normalize `setup_state.id` to `INTEGER`, fixing startup validation failures on databases created with legacy `SMALLINT` type.
 - README now links canonical v2.1 readiness checklist and FE v1 (EPIC #48) closure evidence path.
 - Release template updated to include frontend smoke gate and explicit release cut/rollback command capture.
