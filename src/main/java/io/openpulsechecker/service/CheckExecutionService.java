@@ -18,6 +18,7 @@ public class CheckExecutionService {
 
     private final MonitorService monitorService;
     private final HttpCheckClient httpCheckClient;
+    private final NetworkCheckClient networkCheckClient;
     private final CheckResultRepository checkResultRepository;
     private final IncidentService incidentService;
     private final AuditService auditService;
@@ -26,6 +27,7 @@ public class CheckExecutionService {
     public CheckExecutionService(
             MonitorService monitorService,
             HttpCheckClient httpCheckClient,
+            NetworkCheckClient networkCheckClient,
             CheckResultRepository checkResultRepository,
             IncidentService incidentService,
             AuditService auditService,
@@ -33,6 +35,7 @@ public class CheckExecutionService {
     ) {
         this.monitorService = monitorService;
         this.httpCheckClient = httpCheckClient;
+        this.networkCheckClient = networkCheckClient;
         this.checkResultRepository = checkResultRepository;
         this.incidentService = incidentService;
         this.auditService = auditService;
@@ -42,7 +45,7 @@ public class CheckExecutionService {
     @Transactional
     public CheckResultResponse runCheck(UUID monitorId) {
         MonitorEntity monitor = monitorService.getEntity(monitorId);
-        var outcome = httpCheckClient.execute(monitor.getTargetUrl(), monitor.getTimeoutMs());
+        var outcome = executeByType(monitor);
 
         CheckResultEntity result = new CheckResultEntity();
         result.setMonitorId(monitor.getId());
@@ -78,6 +81,18 @@ public class CheckExecutionService {
                 saved.getCheckedAt(),
                 saved.getError()
         );
+    }
+
+    private HttpCheckOutcome executeByType(MonitorEntity monitor) {
+        return switch (monitor.getType()) {
+            case HTTP -> httpCheckClient.execute(
+                    monitor.getTargetUrl(),
+                    monitor.getTimeoutMs(),
+                    monitor.getHttpMethod() != null ? monitor.getHttpMethod() : io.openpulsechecker.domain.HttpMethod.GET,
+                    monitor.getExpectedResponseKeyword());
+            case TCP -> networkCheckClient.executeTcp(monitor.getTargetUrl(), monitor.getTimeoutMs());
+            case PING -> networkCheckClient.executePing(monitor.getTargetUrl(), monitor.getTimeoutMs());
+        };
     }
 
     private String deriveReason(CheckResultEntity result) {

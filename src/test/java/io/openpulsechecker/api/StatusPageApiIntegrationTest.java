@@ -1,5 +1,6 @@
 package io.openpulsechecker.api;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -68,7 +69,7 @@ class StatusPageApiIntegrationTest {
             role.setCreatedAt(Instant.now());
             userRoleRepository.save(role);
         }
-        given(httpCheckClient.execute(anyString(), anyInt())).willReturn(new HttpCheckOutcome(true, 200, 25L, null));
+        given(httpCheckClient.execute(anyString(), anyInt(), any(), any())).willReturn(new HttpCheckOutcome(true, 200, 25L, null));
     }
 
     @Test
