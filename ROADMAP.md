@@ -64,6 +64,12 @@ This roadmap is a chronological delivery record for Open Pulse Checker.
 - Bootstrap env fallback reduced to emergency-only path (disabled by default, explicit dual-flag gate, blocked post-setup).
 - QA regression matrix delivered for onboarding positive + negative flows.
 
+### Phase 2.6 · Advanced monitor types and HTTP response matching
+- Added monitor type coverage across backend + frontend for `HTTP`, `TCP`, and `PING`.
+- Added configurable HTTP method selection for HTTP monitors (`GET` default when omitted).
+- Added optional `expectedResponseKeyword` matching for HTTP response-body validation.
+- Added monitor-form UX updates for type-specific fields and target format hints.
+
 ## What still needs to be completed (operator-level) to be fully functional for first monitor
 
 The product features are delivered; remaining work is mainly **deployment/operations execution** on target host:

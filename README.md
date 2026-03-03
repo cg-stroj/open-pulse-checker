@@ -2,6 +2,13 @@
 
 Open Pulse Checker is a security-first, self-hosted monitoring platform for uptime checks, incident tracking, alert routing, and public status communication.
 
+Current monitor types:
+- `HTTP` (custom HTTP method supported; defaults to `GET`)
+- `TCP` (`host:port` target)
+- `PING` (URL target)
+
+HTTP monitors optionally support `expectedResponseKeyword` response-body matching.
+
 ## Quickstart (Docker-only)
 
 ### 1) Clone

@@ -81,6 +81,26 @@ List APIs support optional query ergonomics:
 - `paged=true|false` (default `false` for compatibility)
 - `page`, `size`, `sortBy`, `sortDir`, plus endpoint-specific filters
 
+#### Advanced monitor capabilities (Tickets #97/#98/#99)
+
+Supported monitor `type` values:
+- `HTTP`
+- `TCP`
+- `PING`
+
+Request/response fields relevant to advanced checks:
+- `httpMethod` (HTTP monitors only): optional, defaults to `GET` when omitted.
+- `expectedResponseKeyword` (HTTP monitors only): optional substring match against response body.
+
+Behavior rules:
+- `HTTP` monitor target must be `http://` or `https://` URL.
+- `PING` monitor target uses URL validation as HTTP (`http/https` + host required).
+- `TCP` monitor target must use `host:port` format (for example `localhost:5432`).
+- For non-HTTP monitors (`TCP`, `PING`), `httpMethod` and `expectedResponseKeyword` are ignored/reset.
+- Keyword matching is a direct substring check (`contains`) against response body.
+- If the keyword is configured and not found, check result is `DOWN` with error message:
+  - `Expected response keyword not found: <keyword>`
+
 ### Incident/admin APIs
 
 - `GET /api/v1/admin/incidents`
