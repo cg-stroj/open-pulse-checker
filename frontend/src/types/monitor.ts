@@ -1,4 +1,5 @@
-export type MonitorType = 'HTTP'
+export type MonitorType = 'HTTP' | 'TCP' | 'PING'
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'OPTIONS' | 'HEAD'
 export type CheckStatus = 'UP' | 'DOWN' | 'UNKNOWN'
 
 export interface Monitor {
@@ -6,6 +7,8 @@ export interface Monitor {
   name: string
   type: MonitorType
   targetUrl: string
+  httpMethod?: HttpMethod | null
+  expectedResponseKeyword?: string | null
   intervalSec: number
   enabled: boolean
   timeoutMs: number
@@ -21,6 +24,8 @@ export interface CreateMonitorPayload {
   name: string
   type: MonitorType
   targetUrl: string
+  httpMethod?: HttpMethod
+  expectedResponseKeyword?: string
   intervalSec: number
   enabled?: boolean
   timeoutMs: number
@@ -30,6 +35,8 @@ export interface UpdateMonitorPayload {
   name: string
   type: MonitorType
   targetUrl: string
+  httpMethod?: HttpMethod
+  expectedResponseKeyword?: string
   intervalSec: number
   enabled: boolean
   timeoutMs: number

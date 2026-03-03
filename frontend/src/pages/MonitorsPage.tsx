@@ -16,14 +16,16 @@ import {
   useToggleMonitorMutation,
   useUpdateMonitorMutation,
 } from '../lib/api/monitors'
-import type { CheckStatus, CreateMonitorPayload, Monitor, UpdateMonitorPayload } from '../types/monitor'
+import type { CheckStatus, CreateMonitorPayload, HttpMethod, Monitor, MonitorType, UpdateMonitorPayload } from '../types/monitor'
 
 type SortMode = 'name' | 'newest' | 'oldest'
 
 interface FormState {
   name: string
-  type: 'HTTP'
+  type: MonitorType
   targetUrl: string
+  httpMethod: HttpMethod
+  expectedResponseKeyword: string
   intervalSec: string
   timeoutMs: string
   enabled: boolean
@@ -41,6 +43,8 @@ function initFormState(): FormState {
     name: '',
     type: 'HTTP',
     targetUrl: '',
+    httpMethod: 'GET',
+    expectedResponseKeyword: '',
     intervalSec: '60',
     timeoutMs: '1200',
     enabled: true,
@@ -50,8 +54,10 @@ function initFormState(): FormState {
 function fromMonitor(monitor: Monitor): FormState {
   return {
     name: monitor.name,
-    type: monitor.type,
+    type: monitor.type ?? 'HTTP',
     targetUrl: monitor.targetUrl,
+    httpMethod: monitor.httpMethod ?? 'GET',
+    expectedResponseKeyword: monitor.expectedResponseKeyword ?? '',
     intervalSec: String(monitor.intervalSec),
     timeoutMs: String(monitor.timeoutMs),
     enabled: monitor.enabled,
@@ -87,8 +93,8 @@ function validate(form: FormState): FormErrors {
   }
 
   if (!form.targetUrl.trim()) {
-    errors.targetUrl = 'Target URL is required.'
-  } else {
+    errors.targetUrl = form.type === 'HTTP' ? 'Target URL is required.' : 'Target is required.'
+  } else if (form.type === 'HTTP') {
     try {
       const parsed = new URL(form.targetUrl.trim())
       if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
@@ -170,6 +176,15 @@ export function MonitorsPage() {
     return filteredMonitors.find((monitor) => monitor.id === selectedMonitorId) ?? filteredMonitors[0]
   }, [filteredMonitors, selectedMonitorId])
 
+  const isHttpMonitor = form.type === 'HTTP'
+  const targetLabel = isHttpMonitor ? 'Target URL' : 'Target'
+  const targetPlaceholder = isHttpMonitor
+    ? 'https://example.com/health'
+    : form.type === 'TCP'
+      ? 'example.com:443'
+      : 'example.com'
+  const targetHint = form.type === 'TCP' ? 'Format hint: host:port' : null
+
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: ['monitors'] })
     if (selectedMonitorId) {
@@ -179,6 +194,14 @@ export function MonitorsPage() {
 
   function onChange<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function onTypeChange(type: MonitorType) {
+    setForm((prev) => ({
+      ...prev,
+      type,
+      httpMethod: prev.httpMethod || 'GET',
+    }))
   }
 
   function selectForCreate() {
@@ -196,25 +219,41 @@ export function MonitorsPage() {
   }
 
   function toCreatePayload(current: FormState): CreateMonitorPayload {
-    return {
+    const payload: CreateMonitorPayload = {
       name: current.name.trim(),
-      type: current.type,
+      type: current.type ?? 'HTTP',
       targetUrl: current.targetUrl.trim(),
       intervalSec: Number(current.intervalSec),
       enabled: current.enabled,
       timeoutMs: Number(current.timeoutMs),
     }
+
+    if (payload.type === 'HTTP') {
+      payload.httpMethod = current.httpMethod ?? 'GET'
+      const keyword = current.expectedResponseKeyword.trim()
+      if (keyword) payload.expectedResponseKeyword = keyword
+    }
+
+    return payload
   }
 
   function toUpdatePayload(current: FormState): UpdateMonitorPayload {
-    return {
+    const payload: UpdateMonitorPayload = {
       name: current.name.trim(),
-      type: current.type,
+      type: current.type ?? 'HTTP',
       targetUrl: current.targetUrl.trim(),
       intervalSec: Number(current.intervalSec),
       enabled: current.enabled,
       timeoutMs: Number(current.timeoutMs),
     }
+
+    if (payload.type === 'HTTP') {
+      payload.httpMethod = current.httpMethod ?? 'GET'
+      const keyword = current.expectedResponseKeyword.trim()
+      if (keyword) payload.expectedResponseKeyword = keyword
+    }
+
+    return payload
   }
 
   async function submit() {
@@ -428,15 +467,43 @@ export function MonitorsPage() {
               </Field>
 
               <Field label="Type">
-                <SelectInput value={form.type} onChange={(event) => onChange('type', event.target.value as 'HTTP')}>
+                <SelectInput value={form.type} onChange={(event) => onTypeChange(event.target.value as MonitorType)}>
                   <option value="HTTP">HTTP</option>
+                  <option value="TCP">TCP</option>
+                  <option value="PING">PING</option>
                 </SelectInput>
               </Field>
 
-              <Field label="Target URL">
-                <TextInput value={form.targetUrl} maxLength={1024} onChange={(event) => onChange('targetUrl', event.target.value)} placeholder="https://example.com/health" />
+              <Field label={targetLabel}>
+                <TextInput value={form.targetUrl} maxLength={1024} onChange={(event) => onChange('targetUrl', event.target.value)} placeholder={targetPlaceholder} />
+                {targetHint ? <p className="text-xs text-text-muted">{targetHint}</p> : null}
                 {errors.targetUrl ? <p className="text-xs text-red-300">{errors.targetUrl}</p> : null}
               </Field>
+
+              {isHttpMonitor ? (
+                <Field label="HTTP method">
+                  <SelectInput value={form.httpMethod} onChange={(event) => onChange('httpMethod', event.target.value as HttpMethod)}>
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                    <option value="PATCH">PATCH</option>
+                    <option value="OPTIONS">OPTIONS</option>
+                    <option value="HEAD">HEAD</option>
+                  </SelectInput>
+                </Field>
+              ) : null}
+
+              {isHttpMonitor ? (
+                <Field label="Expected response keyword (optional)">
+                  <TextInput
+                    value={form.expectedResponseKeyword}
+                    maxLength={255}
+                    onChange={(event) => onChange('expectedResponseKeyword', event.target.value)}
+                    placeholder="healthy"
+                  />
+                </Field>
+              ) : null}
 
               <Field label="Enabled by default">
                 <SelectInput value={form.enabled ? 'ENABLED' : 'DISABLED'} onChange={(event) => onChange('enabled', event.target.value === 'ENABLED')}>
