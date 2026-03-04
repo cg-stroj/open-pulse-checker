@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { notify } from '../components/feedback/toast'
 import { EmptyState } from '../components/states/EmptyState'
@@ -31,6 +31,176 @@ function statusTone(status: 'OPERATIONAL' | 'DEGRADED' | 'OUTAGE' | 'UP' | 'DOWN
 
 const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
+type StatusPage = NonNullable<ReturnType<typeof useStatusPagesQuery>['data']>[number]
+type V2Config = NonNullable<ReturnType<typeof useStatusPageV2ConfigQuery>['data']>
+type Monitor = NonNullable<ReturnType<typeof useMonitorsQuery>['data']>[number]
+
+function toMaintenanceDraft(config: V2Config) {
+  return config.maintenanceAnnouncements.map((m) => ({
+    id: m.id,
+    title: m.title,
+    message: m.message,
+    publishAt: m.publishAt.slice(0, 16),
+    startsAt: m.startsAt ? m.startsAt.slice(0, 16) : '',
+    endsAt: m.endsAt ? m.endsAt.slice(0, 16) : '',
+    isPublic: m.isPublic,
+  }))
+}
+
+function BrandingEditor({
+  selectedPage,
+  isSaving,
+  onSave,
+}: {
+  selectedPage: StatusPage
+  isSaving: boolean
+  onSave: (payload: { brandName: string; brandTheme: string; brandLogoUrl: string; brandCustomHeader: string; brandCustomFooter: string }) => Promise<void>
+}) {
+  const [brandingName, setBrandingName] = useState(selectedPage.branding?.brandName ?? '')
+  const [brandingTheme, setBrandingTheme] = useState(selectedPage.branding?.brandTheme ?? '')
+  const [brandingLogoUrl, setBrandingLogoUrl] = useState(selectedPage.branding?.brandLogoUrl ?? '')
+  const [brandingHeader, setBrandingHeader] = useState(selectedPage.branding?.brandCustomHeader ?? '')
+  const [brandingFooter, setBrandingFooter] = useState(selectedPage.branding?.brandCustomFooter ?? '')
+
+  return (
+    <div className="rounded-md border border-surface-border p-3 space-y-2">
+      <p className="text-sm font-medium">Branding</p>
+      <Field label="Brand name"><TextInput value={brandingName} onChange={(e) => setBrandingName(e.target.value)} /></Field>
+      <Field label="Theme token"><TextInput value={brandingTheme} onChange={(e) => setBrandingTheme(e.target.value)} placeholder="light|dark|custom" /></Field>
+      <Field label="Logo URL"><TextInput value={brandingLogoUrl} onChange={(e) => setBrandingLogoUrl(e.target.value)} /></Field>
+      <Field label="Header text"><TextInput value={brandingHeader} onChange={(e) => setBrandingHeader(e.target.value)} /></Field>
+      <Field label="Footer text"><TextInput value={brandingFooter} onChange={(e) => setBrandingFooter(e.target.value)} /></Field>
+      <Button
+        variant="secondary"
+        disabled={isSaving}
+        onClick={() => onSave({
+          brandName: brandingName,
+          brandTheme: brandingTheme,
+          brandLogoUrl: brandingLogoUrl,
+          brandCustomHeader: brandingHeader,
+          brandCustomFooter: brandingFooter,
+        })}
+      >
+        Save branding
+      </Button>
+    </div>
+  )
+}
+
+function V2ConfigEditor({
+  initialConfig,
+  monitorCatalog,
+  isSaving,
+  onSave,
+}: {
+  initialConfig: V2Config | null
+  monitorCatalog: Monitor[]
+  isSaving: boolean
+  onSave: (payload: {
+    componentGroups: Array<{ id: string; name: string; displayOrder: number }>
+    monitorBindings: Array<{ monitorId: string; displayOrder: number; componentGroupId: string | null }>
+    maintenanceAnnouncements: Array<{ id: string; title: string; message: string; publishAt: string; startsAt: string | null; endsAt: string | null; isPublic: boolean }>
+  }) => Promise<void>
+}) {
+  const [groupsDraft, setGroupsDraft] = useState<Array<{ id: string; name: string }>>(() => initialConfig?.componentGroups.map((g) => ({ id: g.id, name: g.name })) ?? [])
+  const [bindingsDraft, setBindingsDraft] = useState<Array<{ monitorId: string; componentGroupId: string | null }>>(() =>
+    initialConfig?.monitorBindings.map((m) => ({ monitorId: m.monitorId, componentGroupId: m.componentGroupId })) ?? [],
+  )
+  const [maintenanceDraft, setMaintenanceDraft] = useState<Array<{ id: string; title: string; message: string; publishAt: string; startsAt: string; endsAt: string; isPublic: boolean }>>(
+    () => (initialConfig ? toMaintenanceDraft(initialConfig) : []),
+  )
+
+  return (
+    <>
+      <div className="rounded-md border border-surface-border p-3 space-y-3">
+        <div className="flex items-center justify-between"><p className="text-sm font-medium">Component groups + monitor binding</p><Button variant="secondary" disabled={isSaving} onClick={() => onSave({
+          componentGroups: groupsDraft.map((group, index) => ({ id: group.id, name: group.name, displayOrder: index })),
+          monitorBindings: bindingsDraft.map((binding, index) => ({ monitorId: binding.monitorId, displayOrder: index, componentGroupId: binding.componentGroupId })),
+          maintenanceAnnouncements: maintenanceDraft.map((m) => ({
+            id: m.id,
+            title: m.title,
+            message: m.message,
+            publishAt: new Date(m.publishAt).toISOString(),
+            startsAt: m.startsAt ? new Date(m.startsAt).toISOString() : null,
+            endsAt: m.endsAt ? new Date(m.endsAt).toISOString() : null,
+            isPublic: m.isPublic,
+          })),
+        })}>Save v2 config</Button></div>
+        <Button variant="ghost" onClick={() => setGroupsDraft((prev) => [...prev, { id: crypto.randomUUID(), name: `Group ${prev.length + 1}` }])}>+ Add group</Button>
+        {groupsDraft.map((group, idx) => (
+          <div key={group.id} className="flex gap-2"><TextInput value={group.name} onChange={(e) => setGroupsDraft((prev) => prev.map((g) => g.id === group.id ? { ...g, name: e.target.value } : g))} /><Button variant="ghost" onClick={() => setGroupsDraft((prev) => prev.filter((g) => g.id !== group.id))}>Remove</Button><span className="text-xs">#{idx + 1}</span></div>
+        ))}
+        <p className="text-xs text-text-muted">Bind monitors to groups:</p>
+        {monitorCatalog.map((monitor) => {
+          const binding = bindingsDraft.find((it) => it.monitorId === monitor.id)
+          return (
+            <div key={monitor.id} className="grid gap-2 md:grid-cols-[1fr_1fr] md:items-center">
+              <span className="text-sm">{monitor.name}</span>
+              <select className="rounded-md border border-surface-border bg-bg-panel px-3 py-2 text-sm" value={binding?.componentGroupId ?? ''} onChange={(e) => setBindingsDraft((prev) => {
+                const next = prev.filter((it) => it.monitorId !== monitor.id)
+                next.push({ monitorId: monitor.id, componentGroupId: e.target.value || null })
+                return next
+              })}>
+                <option value="">Ungrouped</option>
+                {groupsDraft.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+              </select>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="rounded-md border border-surface-border p-3 space-y-2">
+        <div className="flex items-center justify-between"><p className="text-sm font-medium">Maintenance announcements</p><Button variant="ghost" onClick={() => setMaintenanceDraft((prev) => [...prev, { id: crypto.randomUUID(), title: '', message: '', publishAt: new Date().toISOString().slice(0, 16), startsAt: '', endsAt: '', isPublic: true }])}>+ Add announcement</Button></div>
+        {maintenanceDraft.length === 0 ? <p className="text-sm text-text-secondary">No announcements configured.</p> : maintenanceDraft.map((item) => (
+          <div key={item.id} className="rounded bg-bg-panel p-2 space-y-2">
+            <TextInput value={item.title} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, title: e.target.value } : m))} placeholder="Title" />
+            <TextInput value={item.message} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, message: e.target.value } : m))} placeholder="Message" />
+            <div className="grid gap-2 md:grid-cols-3">
+              <input type="datetime-local" value={item.publishAt} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, publishAt: e.target.value } : m))} />
+              <input type="datetime-local" value={item.startsAt} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, startsAt: e.target.value } : m))} />
+              <input type="datetime-local" value={item.endsAt} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, endsAt: e.target.value } : m))} />
+            </div>
+            <label className="text-sm"><input type="checkbox" checked={item.isPublic} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, isPublic: e.target.checked } : m))} /> Public</label>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function StatusPagePreview({ selectedPage }: { selectedPage: StatusPage | null }) {
+  const [previewSlugInput, setPreviewSlugInput] = useState(selectedPage?.slug ?? '')
+  const effectivePreviewSlug = previewSlugInput.trim() || selectedPage?.slug || null
+  const publicPreviewQuery = usePublicStatusPageQuery(effectivePreviewSlug)
+
+  return (
+    <aside className="space-y-3 rounded-lg border border-surface-border bg-bg-elevated p-4">
+      <Field label="Preview slug"><TextInput value={previewSlugInput} onChange={(e) => setPreviewSlugInput(e.target.value)} /></Field>
+      {!effectivePreviewSlug ? (
+        <EmptyState title="Enter a slug" description="Provide a slug to fetch public status page preview." />
+      ) : publicPreviewQuery.isLoading ? (
+        <LoadingState title="Loading preview" description="Fetching public status page payload." />
+      ) : publicPreviewQuery.isError ? (
+        <ErrorState title="Public preview unavailable" description="Slug missing, non-public, or not found." />
+      ) : publicPreviewQuery.data ? (
+        <div className="space-y-3 rounded-md border border-surface-border p-3">
+          <div className="flex items-center justify-between"><h3 className="font-semibold">{publicPreviewQuery.data.page.branding?.brandName || publicPreviewQuery.data.page.name}</h3><Badge tone={statusTone(publicPreviewQuery.data.overallStatus)}>{publicPreviewQuery.data.overallStatus}</Badge></div>
+          {publicPreviewQuery.data.page.branding?.brandCustomHeader ? <p className="text-xs text-text-muted">{publicPreviewQuery.data.page.branding.brandCustomHeader}</p> : null}
+          {publicPreviewQuery.data.maintenanceAnnouncements.length > 0 && (
+            <div className="space-y-2"><p className="text-sm font-medium">Active maintenance</p>{publicPreviewQuery.data.maintenanceAnnouncements.map((m) => <div key={m.id} className="rounded bg-bg-panel p-2 text-xs"><p className="font-semibold">{m.title}</p><p>{m.message}</p></div>)}</div>
+          )}
+          <div className="space-y-2"><p className="text-sm font-medium">Services</p>{publicPreviewQuery.data.componentGroups.map((group) => (
+            <div key={group.id}><p className="text-xs font-semibold text-text-muted">{group.name}</p><ul className="space-y-2">{publicPreviewQuery.data.monitors.filter((m) => m.componentGroupId === group.id).map((monitor) => <li key={monitor.monitorId} className="rounded-md bg-bg-panel p-2"><div className="flex justify-between"><span>{monitor.monitorName}</span><Badge tone={statusTone(monitor.currentStatus)}>{monitor.currentStatus}</Badge></div><p className="text-xs">Last check: {formatDateTime(monitor.checkedAt)}</p></li>)}</ul></div>
+          ))}
+          <ul className="space-y-2">{publicPreviewQuery.data.monitors.filter((m) => !m.componentGroupId).map((monitor) => <li key={monitor.monitorId} className="rounded-md bg-bg-panel p-2"><div className="flex justify-between"><span>{monitor.monitorName}</span><Badge tone={statusTone(monitor.currentStatus)}>{monitor.currentStatus}</Badge></div></li>)}</ul>
+          </div>
+          {publicPreviewQuery.data.page.branding?.brandCustomFooter ? <p className="text-xs text-text-muted">{publicPreviewQuery.data.page.branding.brandCustomFooter}</p> : null}
+        </div>
+      ) : null}
+    </aside>
+  )
+}
+
 export function StatusPagesPage() {
   const queryClient = useQueryClient()
   const statusPagesQuery = useStatusPagesQuery()
@@ -43,16 +213,6 @@ export function StatusPagesPage() {
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [isPublic, setIsPublic] = useState(true)
-  const [previewSlugInput, setPreviewSlugInput] = useState('')
-  const [brandingName, setBrandingName] = useState('')
-  const [brandingTheme, setBrandingTheme] = useState('')
-  const [brandingLogoUrl, setBrandingLogoUrl] = useState('')
-  const [brandingHeader, setBrandingHeader] = useState('')
-  const [brandingFooter, setBrandingFooter] = useState('')
-
-  const [groupsDraft, setGroupsDraft] = useState<Array<{ id: string; name: string }>>([])
-  const [bindingsDraft, setBindingsDraft] = useState<Array<{ monitorId: string; componentGroupId: string | null }>>([])
-  const [maintenanceDraft, setMaintenanceDraft] = useState<Array<{ id: string; title: string; message: string; publishAt: string; startsAt: string; endsAt: string; isPublic: boolean }>>([])
 
   const selectedPage = useMemo(() => {
     const pages = statusPagesQuery.data ?? []
@@ -62,36 +222,6 @@ export function StatusPagesPage() {
   }, [selectedPageId, statusPagesQuery.data])
 
   const configQuery = useStatusPageV2ConfigQuery(selectedPage?.id ?? null)
-  const effectivePreviewSlug = previewSlugInput.trim() || selectedPage?.slug || null
-  const publicPreviewQuery = usePublicStatusPageQuery(effectivePreviewSlug)
-
-  useEffect(() => {
-    if (!selectedPage) return
-    setPreviewSlugInput(selectedPage.slug)
-    setBrandingName(selectedPage.branding?.brandName ?? '')
-    setBrandingTheme(selectedPage.branding?.brandTheme ?? '')
-    setBrandingLogoUrl(selectedPage.branding?.brandLogoUrl ?? '')
-    setBrandingHeader(selectedPage.branding?.brandCustomHeader ?? '')
-    setBrandingFooter(selectedPage.branding?.brandCustomFooter ?? '')
-  }, [selectedPage?.id])
-
-  useEffect(() => {
-    if (!configQuery.data) return
-    setGroupsDraft(configQuery.data.componentGroups.map((g) => ({ id: g.id, name: g.name })))
-    setBindingsDraft(configQuery.data.monitorBindings.map((m) => ({ monitorId: m.monitorId, componentGroupId: m.componentGroupId })))
-    setMaintenanceDraft(
-      configQuery.data.maintenanceAnnouncements.map((m) => ({
-        id: m.id,
-        title: m.title,
-        message: m.message,
-        publishAt: m.publishAt.slice(0, 16),
-        startsAt: m.startsAt ? m.startsAt.slice(0, 16) : '',
-        endsAt: m.endsAt ? m.endsAt.slice(0, 16) : '',
-        isPublic: m.isPublic,
-      })),
-    )
-  }, [configQuery.data])
-
   const monitorCatalog = monitorsQuery.data ?? []
 
   async function refreshStatusPages() {
@@ -114,18 +244,12 @@ export function StatusPagesPage() {
     }
   }
 
-  async function saveBranding() {
+  async function saveBranding(payload: { brandName: string; brandTheme: string; brandLogoUrl: string; brandCustomHeader: string; brandCustomFooter: string }) {
     if (!selectedPage) return
     try {
       await updatePageMutation.mutateAsync({
         pageId: selectedPage.id,
-        data: {
-          brandName: brandingName,
-          brandTheme: brandingTheme,
-          brandLogoUrl: brandingLogoUrl,
-          brandCustomHeader: brandingHeader,
-          brandCustomFooter: brandingFooter,
-        },
+        data: payload,
       })
       await refreshStatusPages()
       notify.success('Branding saved.')
@@ -134,24 +258,16 @@ export function StatusPagesPage() {
     }
   }
 
-  async function saveV2Config() {
+  async function saveV2Config(payload: {
+    componentGroups: Array<{ id: string; name: string; displayOrder: number }>
+    monitorBindings: Array<{ monitorId: string; displayOrder: number; componentGroupId: string | null }>
+    maintenanceAnnouncements: Array<{ id: string; title: string; message: string; publishAt: string; startsAt: string | null; endsAt: string | null; isPublic: boolean }>
+  }) {
     if (!selectedPage) return
     try {
       await upsertConfigMutation.mutateAsync({
         pageId: selectedPage.id,
-        data: {
-          componentGroups: groupsDraft.map((group, index) => ({ id: group.id, name: group.name, displayOrder: index })),
-          monitorBindings: bindingsDraft.map((binding, index) => ({ monitorId: binding.monitorId, displayOrder: index, componentGroupId: binding.componentGroupId })),
-          maintenanceAnnouncements: maintenanceDraft.map((m) => ({
-            id: m.id,
-            title: m.title,
-            message: m.message,
-            publishAt: new Date(m.publishAt).toISOString(),
-            startsAt: m.startsAt ? new Date(m.startsAt).toISOString() : null,
-            endsAt: m.endsAt ? new Date(m.endsAt).toISOString() : null,
-            isPublic: m.isPublic,
-          })),
-        },
+        data: payload,
       })
       await queryClient.invalidateQueries({ queryKey: ['status-pages', selectedPage.id, 'config'] })
       await queryClient.invalidateQueries({ queryKey: ['status-pages', 'public', selectedPage.slug] })
@@ -205,86 +321,22 @@ export function StatusPagesPage() {
                 </div>
               </div>
 
-              <div className="rounded-md border border-surface-border p-3 space-y-2">
-                <p className="text-sm font-medium">Branding</p>
-                <Field label="Brand name"><TextInput value={brandingName} onChange={(e) => setBrandingName(e.target.value)} /></Field>
-                <Field label="Theme token"><TextInput value={brandingTheme} onChange={(e) => setBrandingTheme(e.target.value)} placeholder="light|dark|custom" /></Field>
-                <Field label="Logo URL"><TextInput value={brandingLogoUrl} onChange={(e) => setBrandingLogoUrl(e.target.value)} /></Field>
-                <Field label="Header text"><TextInput value={brandingHeader} onChange={(e) => setBrandingHeader(e.target.value)} /></Field>
-                <Field label="Footer text"><TextInput value={brandingFooter} onChange={(e) => setBrandingFooter(e.target.value)} /></Field>
-                <Button variant="secondary" onClick={saveBranding}>Save branding</Button>
-              </div>
+              <BrandingEditor key={selectedPage.id} selectedPage={selectedPage} isSaving={updatePageMutation.isPending} onSave={saveBranding} />
 
-              <div className="rounded-md border border-surface-border p-3 space-y-3">
-                <div className="flex items-center justify-between"><p className="text-sm font-medium">Component groups + monitor binding</p><Button variant="secondary" onClick={saveV2Config}>Save v2 config</Button></div>
-                <Button variant="ghost" onClick={() => setGroupsDraft((prev) => [...prev, { id: crypto.randomUUID(), name: `Group ${prev.length + 1}` }])}>+ Add group</Button>
-                {groupsDraft.map((group, idx) => (
-                  <div key={group.id} className="flex gap-2"><TextInput value={group.name} onChange={(e) => setGroupsDraft((prev) => prev.map((g) => g.id === group.id ? { ...g, name: e.target.value } : g))} /><Button variant="ghost" onClick={() => setGroupsDraft((prev) => prev.filter((g) => g.id !== group.id))}>Remove</Button><span className="text-xs">#{idx + 1}</span></div>
-                ))}
-                <p className="text-xs text-text-muted">Bind monitors to groups:</p>
-                {monitorCatalog.map((monitor) => {
-                  const binding = bindingsDraft.find((it) => it.monitorId === monitor.id)
-                  return (
-                    <div key={monitor.id} className="grid gap-2 md:grid-cols-[1fr_1fr] md:items-center">
-                      <span className="text-sm">{monitor.name}</span>
-                      <select className="rounded-md border border-surface-border bg-bg-panel px-3 py-2 text-sm" value={binding?.componentGroupId ?? ''} onChange={(e) => setBindingsDraft((prev) => {
-                        const next = prev.filter((it) => it.monitorId !== monitor.id)
-                        next.push({ monitorId: monitor.id, componentGroupId: e.target.value || null })
-                        return next
-                      })}>
-                        <option value="">Ungrouped</option>
-                        {groupsDraft.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
-                      </select>
-                    </div>
-                  )
-                })}
-              </div>
-
-              <div className="rounded-md border border-surface-border p-3 space-y-2">
-                <div className="flex items-center justify-between"><p className="text-sm font-medium">Maintenance announcements</p><Button variant="ghost" onClick={() => setMaintenanceDraft((prev) => [...prev, { id: crypto.randomUUID(), title: '', message: '', publishAt: new Date().toISOString().slice(0, 16), startsAt: '', endsAt: '', isPublic: true }])}>+ Add announcement</Button></div>
-                {maintenanceDraft.length === 0 ? <p className="text-sm text-text-secondary">No announcements configured.</p> : maintenanceDraft.map((item) => (
-                  <div key={item.id} className="rounded bg-bg-panel p-2 space-y-2">
-                    <TextInput value={item.title} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, title: e.target.value } : m))} placeholder="Title" />
-                    <TextInput value={item.message} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, message: e.target.value } : m))} placeholder="Message" />
-                    <div className="grid gap-2 md:grid-cols-3">
-                      <input type="datetime-local" value={item.publishAt} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, publishAt: e.target.value } : m))} />
-                      <input type="datetime-local" value={item.startsAt} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, startsAt: e.target.value } : m))} />
-                      <input type="datetime-local" value={item.endsAt} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, endsAt: e.target.value } : m))} />
-                    </div>
-                    <label className="text-sm"><input type="checkbox" checked={item.isPublic} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, isPublic: e.target.checked } : m))} /> Public</label>
-                  </div>
-                ))}
-              </div>
+              <V2ConfigEditor
+                key={`${selectedPage.id}:${configQuery.dataUpdatedAt}`}
+                initialConfig={configQuery.data ?? null}
+                monitorCatalog={monitorCatalog}
+                isSaving={upsertConfigMutation.isPending}
+                onSave={saveV2Config}
+              />
             </>
           ) : (
             <EmptyState title="No status pages yet" description="Create the first status page to start building public health views." />
           )}
         </div>
 
-        <aside className="space-y-3 rounded-lg border border-surface-border bg-bg-elevated p-4">
-          <Field label="Preview slug"><TextInput value={previewSlugInput} onChange={(e) => setPreviewSlugInput(e.target.value)} /></Field>
-          {!previewSlugInput.trim() ? (
-            <EmptyState title="Enter a slug" description="Provide a slug to fetch public status page preview." />
-          ) : publicPreviewQuery.isLoading ? (
-            <LoadingState title="Loading preview" description="Fetching public status page payload." />
-          ) : publicPreviewQuery.isError ? (
-            <ErrorState title="Public preview unavailable" description="Slug missing, non-public, or not found." />
-          ) : publicPreviewQuery.data ? (
-            <div className="space-y-3 rounded-md border border-surface-border p-3">
-              <div className="flex items-center justify-between"><h3 className="font-semibold">{publicPreviewQuery.data.page.branding?.brandName || publicPreviewQuery.data.page.name}</h3><Badge tone={statusTone(publicPreviewQuery.data.overallStatus)}>{publicPreviewQuery.data.overallStatus}</Badge></div>
-              {publicPreviewQuery.data.page.branding?.brandCustomHeader ? <p className="text-xs text-text-muted">{publicPreviewQuery.data.page.branding.brandCustomHeader}</p> : null}
-              {publicPreviewQuery.data.maintenanceAnnouncements.length > 0 && (
-                <div className="space-y-2"><p className="text-sm font-medium">Active maintenance</p>{publicPreviewQuery.data.maintenanceAnnouncements.map((m) => <div key={m.id} className="rounded bg-bg-panel p-2 text-xs"><p className="font-semibold">{m.title}</p><p>{m.message}</p></div>)}</div>
-              )}
-              <div className="space-y-2"><p className="text-sm font-medium">Services</p>{publicPreviewQuery.data.componentGroups.map((group) => (
-                <div key={group.id}><p className="text-xs font-semibold text-text-muted">{group.name}</p><ul className="space-y-2">{publicPreviewQuery.data.monitors.filter((m) => m.componentGroupId === group.id).map((monitor) => <li key={monitor.monitorId} className="rounded-md bg-bg-panel p-2"><div className="flex justify-between"><span>{monitor.monitorName}</span><Badge tone={statusTone(monitor.currentStatus)}>{monitor.currentStatus}</Badge></div><p className="text-xs">Last check: {formatDateTime(monitor.checkedAt)}</p></li>)}</ul></div>
-              ))}
-              <ul className="space-y-2">{publicPreviewQuery.data.monitors.filter((m) => !m.componentGroupId).map((monitor) => <li key={monitor.monitorId} className="rounded-md bg-bg-panel p-2"><div className="flex justify-between"><span>{monitor.monitorName}</span><Badge tone={statusTone(monitor.currentStatus)}>{monitor.currentStatus}</Badge></div></li>)}</ul>
-              </div>
-              {publicPreviewQuery.data.page.branding?.brandCustomFooter ? <p className="text-xs text-text-muted">{publicPreviewQuery.data.page.branding.brandCustomFooter}</p> : null}
-            </div>
-          ) : null}
-        </aside>
+        <StatusPagePreview key={selectedPage?.id ?? 'none'} selectedPage={selectedPage} />
       </div>
     </section>
   )
