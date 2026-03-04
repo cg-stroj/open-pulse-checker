@@ -113,6 +113,12 @@ For active development in this private server setup:
 - BOS validates manually in UI,
 - only then push to GitHub.
 
+CI parity gates on push/PR (GitHub Actions):
+- Backend: `mvn clean verify` (PostgreSQL service container)
+- Frontend: `npm run lint`
+- Frontend: `npm run build`
+- Frontend: `npm run test:e2e:smoke`
+
 Runbook reference: [`OPERATIONS_RUNBOOK.md`](./OPERATIONS_RUNBOOK.md)
 
 ## Documentation index

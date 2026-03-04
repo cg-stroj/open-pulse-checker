@@ -36,9 +36,36 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Build, test, and package verification
+      - name: Backend verify (Maven)
         env:
           OPENPULSE_DB_URL: jdbc:postgresql://localhost:5432/openpulse
           OPENPULSE_DB_USERNAME: openpulse
           OPENPULSE_DB_PASSWORD: openpulse
         run: mvn --batch-mode --no-transfer-progress clean verify
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Frontend lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Frontend build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Frontend smoke e2e
+        working-directory: frontend
+        run: npm run test:e2e:smoke

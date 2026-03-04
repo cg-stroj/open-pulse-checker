@@ -24,6 +24,12 @@ cd frontend && npm run lint && npm run build && npm run test:e2e:smoke && cd ..
 ./scripts/run.sh health
 ```
 
+CI parity (enforced on push/PR via `.github/workflows/ci.yml`):
+- Backend verify with PostgreSQL service (`mvn clean verify`)
+- Frontend lint (`npm run lint`)
+- Frontend production build (`npm run build`)
+- Frontend Playwright smoke (`npm run test:e2e:smoke`)
+
 ## Assistant runtime access model (Docker control)
 
 Goal: assistant can run `status/logs/restart/health` directly for faster diagnostics.
