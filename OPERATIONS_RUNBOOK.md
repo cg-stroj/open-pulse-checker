@@ -201,6 +201,31 @@ Behavior:
 - `openpulse.alerts.dlq`
 - `openpulse.alerts.dlq.replay`
 
+### Dashboard observability troubleshooting (Ticket #111)
+1. Verify actuator exposure and auth (expect `401` without auth, `200` with ADMIN):
+   ```bash
+   curl -i http://localhost:8080/actuator/metrics
+   curl -i -u admin:*** http://localhost:8080/actuator/metrics
+   ```
+2. Verify required metrics are present in catalog:
+   ```bash
+   curl -s -u admin:*** http://localhost:8080/actuator/metrics | jq -r '.names[]' | grep '^openpulse\.'
+   ```
+3. Verify one concrete metric payload:
+   ```bash
+   curl -s -u admin:*** "http://localhost:8080/actuator/metrics/openpulse.alerts.dispatch.latency?tag=outcome:success"
+   ```
+4. If UI is served behind a path prefix (example `/openpulse`), ensure frontend API base URL includes that prefix so dashboard derives actuator base URL correctly:
+   - `VITE_API_BASE_URL=https://<host>/openpulse/api/v1`
+   - Dashboard actuator calls must resolve to `https://<host>/openpulse/actuator/...`
+5. UI diagnostics now map to failure class:
+   - `401` → session invalid/expired
+   - `403` → account missing ADMIN privileges
+   - `404 endpoint` → `/actuator` route/exposure/proxy issue
+   - `404 metric` → metric not registered/exposed
+   - `5xx` → backend actuator/server failure
+   - network error → routing/CORS/connectivity issue
+
 ## Alert triage playbooks
 
 #### 1) Scheduler lock contention high (warning)

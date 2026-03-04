@@ -4,7 +4,7 @@ import { LoadingState } from '../components/states/LoadingState'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Field, SelectInput } from '../components/ui/FormControls'
-import { useOpsDashboardQuery } from '../lib/api/observability'
+import { describeObservabilityError, useOpsDashboardQuery } from '../lib/api/observability'
 
 const defaultRefreshMs = 10_000
 const refreshOptionsMs = [5_000, 10_000, 30_000, 60_000]
@@ -67,7 +67,7 @@ export function DashboardPage() {
     return (
       <ErrorState
         title="Ops observability unavailable"
-        description="Unable to load metrics from actuator endpoints. Verify ADMIN access and backend availability."
+        description={describeObservabilityError(dashboardQuery.error)}
         action={
           <Button variant="secondary" onClick={() => void dashboardQuery.refetch()}>
             Retry
