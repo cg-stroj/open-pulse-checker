@@ -32,6 +32,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import io.openpulsechecker.support.H2TestDatabaseSupport;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -40,7 +41,7 @@ import org.springframework.test.web.servlet.MvcResult;
         "openpulse.security.bootstrap-admin.username=admin",
         "openpulse.security.bootstrap-admin.password=admin-change-me"
 })
-class MonitorApiIntegrationTest {
+class MonitorApiIntegrationTest extends H2TestDatabaseSupport {
 
     @Autowired private MockMvc mockMvc;
     @MockBean private HttpCheckClient httpCheckClient;

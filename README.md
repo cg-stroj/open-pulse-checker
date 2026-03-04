@@ -114,10 +114,28 @@ For active development in this private server setup:
 - only then push to GitHub.
 
 CI parity gates on push/PR (GitHub Actions):
-- Backend: `mvn clean verify` (PostgreSQL service container)
+- Backend: `mvn clean verify` (H2 in-memory test database, PostgreSQL compatibility mode)
 - Frontend: `npm run lint`
 - Frontend: `npm run build`
 - Frontend: `npm run test:e2e:smoke`
+
+## Backend test execution (deterministic)
+
+Backend tests use only an in-memory H2 database in PostgreSQL compatibility mode. No Docker/Testcontainers dependency is required for test execution.
+
+Prerequisites:
+- Java 21
+- Maven 3.9+
+
+Run tests:
+```bash
+mvn test
+```
+
+Run full backend verification:
+```bash
+mvn clean verify
+```
 
 Runbook reference: [`OPERATIONS_RUNBOOK.md`](./OPERATIONS_RUNBOOK.md)
 

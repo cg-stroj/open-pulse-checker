@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import io.openpulsechecker.support.H2TestDatabaseSupport;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -19,7 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
         "openpulse.security.bootstrap-admin.username=admin",
         "openpulse.security.bootstrap-admin.password=admin-change-me"
 })
-class AuditWriteActionIntegrationTest {
+class AuditWriteActionIntegrationTest extends H2TestDatabaseSupport {
 
     @Autowired
     private MockMvc mockMvc;

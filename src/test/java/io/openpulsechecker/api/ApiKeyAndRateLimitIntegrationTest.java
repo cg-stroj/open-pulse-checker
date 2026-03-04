@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import io.openpulsechecker.support.H2TestDatabaseSupport;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -25,7 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
         "openpulse.rate-limit.sensitive.refill-tokens=2",
         "openpulse.rate-limit.sensitive.refill-period-seconds=1"
 })
-class ApiKeyAndRateLimitIntegrationTest {
+class ApiKeyAndRateLimitIntegrationTest extends H2TestDatabaseSupport {
 
     @Autowired MockMvc mockMvc;
     @Autowired ServiceApiKeyRepository repository;

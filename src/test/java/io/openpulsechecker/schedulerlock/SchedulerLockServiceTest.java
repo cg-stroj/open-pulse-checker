@@ -14,10 +14,11 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import io.openpulsechecker.support.H2TestDatabaseSupport;
 
 @DataJpaTest
 @Import({SchedulerLockService.class, SchedulerLockServiceTest.TestConfig.class})
-class SchedulerLockServiceTest {
+class SchedulerLockServiceTest extends H2TestDatabaseSupport {
 
     @Autowired
     private SchedulerLockService schedulerLockService;
