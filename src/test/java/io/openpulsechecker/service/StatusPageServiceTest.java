@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 class StatusPageServiceTest {
 
-    private final StatusPageService service = new StatusPageService(null, null, null, null, null);
+    private final StatusPageService service = new StatusPageService(null, null, null, null, null, null, null);
 
     @Test
     void deriveStatusOperationalWhenAllUp() {
@@ -44,6 +44,6 @@ class StatusPageServiceTest {
     }
 
     private PublicStatusPageResponse.PublicMonitorSummary summary(CheckStatus status) {
-        return new PublicStatusPageResponse.PublicMonitorSummary(UUID.randomUUID(), "m", 0, status, null, null, null);
+        return new PublicStatusPageResponse.PublicMonitorSummary(UUID.randomUUID(), "m", 0, null, status, null, null, null);
     }
 }

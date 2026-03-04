@@ -8,6 +8,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -104,6 +105,8 @@ class StatusPageApiIntegrationTest extends H2TestDatabaseSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.page.slug").value("main-status"))
                 .andExpect(jsonPath("$.overallStatus").value("OPERATIONAL"))
+                .andExpect(jsonPath("$.componentGroups").isArray())
+                .andExpect(jsonPath("$.maintenanceAnnouncements").isArray())
                 .andExpect(jsonPath("$.monitors[0].monitorId").value(savedMonitor.getId().toString()));
     }
 
@@ -171,6 +174,54 @@ class StatusPageApiIntegrationTest extends H2TestDatabaseSupport {
         mockMvc.perform(delete("/api/v1/status-pages/" + pageId + "/monitors/" + monitorId)
                         .with(httpBasic("viewer", "viewer-change-me")))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void statusPageV2ConfigAndBrandingFlowReflectsOnPublicPayload() throws Exception {
+        MonitorEntity monitor = new MonitorEntity();
+        monitor.setName("Public API");
+        monitor.setType(io.openpulsechecker.domain.MonitorType.HTTP);
+        monitor.setTargetUrl("https://example.com/public-api");
+        monitor.setIntervalSec(60);
+        monitor.setEnabled(true);
+        monitor.setTimeoutMs(1000);
+        UUID monitorId = monitorRepository.save(monitor).getId();
+
+        String createResponse = mockMvc.perform(post("/api/v1/status-pages")
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Main\",\"slug\":\"v2-main\",\"isPublic\":true}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String pageId = createResponse.replaceAll(".*\\\"id\\\":\\\"([^\\\"]+)\\\".*", "$1");
+
+        mockMvc.perform(put("/api/v1/status-pages/" + pageId)
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"brandName\":\"OpenPulse\",\"brandTheme\":\"dark\",\"brandCustomHeader\":\"Scheduled updates\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.branding.brandName").value("OpenPulse"));
+
+        String configPayload = """
+                {
+                  "componentGroups":[{"name":"Core Services","displayOrder":0}],
+                  "monitorBindings":[{"monitorId":"%s","displayOrder":0}],
+                  "maintenanceAnnouncements":[{"title":"Database migration","message":"Minor maintenance","publishAt":"2000-01-01T00:00:00Z","startsAt":"2000-01-01T01:00:00Z","endsAt":"2999-01-01T03:00:00Z","isPublic":true}]
+                }
+                """.formatted(monitorId);
+
+        mockMvc.perform(put("/api/v1/status-pages/" + pageId + "/config")
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(configPayload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.componentGroups[0].name").value("Core Services"));
+
+        mockMvc.perform(get("/api/v1/public/status-pages/v2-main"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page.branding.brandName").value("OpenPulse"))
+                .andExpect(jsonPath("$.componentGroups[0].name").value("Core Services"))
+                .andExpect(jsonPath("$.maintenanceAnnouncements[0].title").value("Database migration"));
     }
 
     @Test

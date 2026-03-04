@@ -10,13 +10,31 @@ import java.util.UUID;
 public record PublicStatusPageResponse(
         StatusPageResponse page,
         StatusPageOverallStatus overallStatus,
+        List<PublicComponentGroup> componentGroups,
+        List<PublicMaintenanceAnnouncement> maintenanceAnnouncements,
         List<PublicMonitorSummary> monitors,
         List<IncidentTimelineItem> incidents
 ) {
+    public record PublicComponentGroup(
+            UUID id,
+            String name,
+            int displayOrder
+    ) {}
+
+    public record PublicMaintenanceAnnouncement(
+            UUID id,
+            String title,
+            String message,
+            Instant publishAt,
+            Instant startsAt,
+            Instant endsAt
+    ) {}
+
     public record PublicMonitorSummary(
             UUID monitorId,
             String monitorName,
             int displayOrder,
+            UUID componentGroupId,
             CheckStatus currentStatus,
             Integer statusCode,
             Long latencyMs,

@@ -23,10 +23,15 @@ public class StatusPageMonitorEntity {
     @Column(nullable = false)
     private int displayOrder;
 
+    @Column
+    private UUID componentGroupId;
+
     public UUID getStatusPageId() { return statusPageId; }
     public void setStatusPageId(UUID statusPageId) { this.statusPageId = statusPageId; }
     public UUID getMonitorId() { return monitorId; }
     public void setMonitorId(UUID monitorId) { this.monitorId = monitorId; }
     public int getDisplayOrder() { return displayOrder; }
     public void setDisplayOrder(int displayOrder) { this.displayOrder = displayOrder; }
+    public UUID getComponentGroupId() { return componentGroupId; }
+    public void setComponentGroupId(UUID componentGroupId) { this.componentGroupId = componentGroupId; }
 }

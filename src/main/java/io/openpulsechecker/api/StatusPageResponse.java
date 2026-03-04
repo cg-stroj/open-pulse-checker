@@ -8,6 +8,7 @@ public record StatusPageResponse(
         String name,
         String slug,
         boolean isPublic,
+        StatusPageBrandingResponse branding,
         Instant createdAt,
         Instant updatedAt
 ) {

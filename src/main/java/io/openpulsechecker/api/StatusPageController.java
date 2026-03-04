@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -42,6 +43,21 @@ public class StatusPageController {
     public ResponseEntity<StatusPageResponse> create(@Valid @RequestBody CreateStatusPageRequest request) {
         StatusPageResponse response = statusPageService.create(request);
         return ResponseEntity.created(URI.create("/api/v1/status-pages/" + response.id())).body(response);
+    }
+
+    @PutMapping("/status-pages/{id}")
+    public StatusPageResponse update(@PathVariable UUID id, @Valid @RequestBody UpdateStatusPageRequest request) {
+        return statusPageService.update(id, request);
+    }
+
+    @GetMapping("/status-pages/{id}/config")
+    public StatusPageV2ConfigResponse getV2Config(@PathVariable UUID id) {
+        return statusPageService.getConfig(id);
+    }
+
+    @PutMapping("/status-pages/{id}/config")
+    public StatusPageV2ConfigResponse upsertV2Config(@PathVariable UUID id, @Valid @RequestBody UpsertStatusPageV2ConfigRequest request) {
+        return statusPageService.upsertConfig(id, request);
     }
 
     @GetMapping("/status-pages")

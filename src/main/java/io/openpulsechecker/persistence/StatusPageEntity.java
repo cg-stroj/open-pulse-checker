@@ -25,6 +25,21 @@ public class StatusPageEntity {
     @Column(nullable = false)
     private boolean isPublic;
 
+    @Column(length = 120)
+    private String brandName;
+
+    @Column(length = 32)
+    private String brandTheme;
+
+    @Column(length = 1024)
+    private String brandLogoUrl;
+
+    @Column(length = 240)
+    private String brandCustomHeader;
+
+    @Column(length = 500)
+    private String brandCustomFooter;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -54,6 +69,16 @@ public class StatusPageEntity {
     public void setSlug(String slug) { this.slug = slug; }
     public boolean isPublic() { return isPublic; }
     public void setPublic(boolean aPublic) { isPublic = aPublic; }
+    public String getBrandName() { return brandName; }
+    public void setBrandName(String brandName) { this.brandName = brandName; }
+    public String getBrandTheme() { return brandTheme; }
+    public void setBrandTheme(String brandTheme) { this.brandTheme = brandTheme; }
+    public String getBrandLogoUrl() { return brandLogoUrl; }
+    public void setBrandLogoUrl(String brandLogoUrl) { this.brandLogoUrl = brandLogoUrl; }
+    public String getBrandCustomHeader() { return brandCustomHeader; }
+    public void setBrandCustomHeader(String brandCustomHeader) { this.brandCustomHeader = brandCustomHeader; }
+    public String getBrandCustomFooter() { return brandCustomFooter; }
+    public void setBrandCustomFooter(String brandCustomFooter) { this.brandCustomFooter = brandCustomFooter; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

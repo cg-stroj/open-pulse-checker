@@ -53,6 +53,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/monitors/*/enabled").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/monitors/*/run-check").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/status-pages/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/status-pages/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/status-pages/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/status-pages/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/monitors/**").hasAnyRole("ADMIN", "VIEWER")

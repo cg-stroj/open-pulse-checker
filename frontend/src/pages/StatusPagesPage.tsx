@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { notify } from '../components/feedback/toast'
 import { EmptyState } from '../components/states/EmptyState'
@@ -10,12 +10,12 @@ import { Field, TextInput } from '../components/ui/FormControls'
 import { useMonitorsQuery } from '../lib/api/monitors'
 import {
   getStatusPageApiErrorMessage,
-  type PublicMonitorSummary,
-  useAttachStatusPageMonitorsMutation,
   useCreateStatusPageMutation,
   usePublicStatusPageQuery,
-  useRemoveStatusPageMonitorMutation,
+  useStatusPageV2ConfigQuery,
   useStatusPagesQuery,
+  useUpdateStatusPageMutation,
+  useUpsertStatusPageV2ConfigMutation,
 } from '../lib/api/statusPages'
 
 function formatDateTime(input: string | null) {
@@ -35,19 +35,24 @@ export function StatusPagesPage() {
   const queryClient = useQueryClient()
   const statusPagesQuery = useStatusPagesQuery()
   const monitorsQuery = useMonitorsQuery()
-
   const createPageMutation = useCreateStatusPageMutation()
-  const attachMonitorsMutation = useAttachStatusPageMonitorsMutation()
-  const removeMonitorMutation = useRemoveStatusPageMonitorMutation()
+  const updatePageMutation = useUpdateStatusPageMutation()
+  const upsertConfigMutation = useUpsertStatusPageV2ConfigMutation()
 
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [isPublic, setIsPublic] = useState(true)
-
-  const [selectedMonitorId, setSelectedMonitorId] = useState('')
-  const [workingMonitorsByPage, setWorkingMonitorsByPage] = useState<Record<string, PublicMonitorSummary[]>>({})
   const [previewSlugInput, setPreviewSlugInput] = useState('')
+  const [brandingName, setBrandingName] = useState('')
+  const [brandingTheme, setBrandingTheme] = useState('')
+  const [brandingLogoUrl, setBrandingLogoUrl] = useState('')
+  const [brandingHeader, setBrandingHeader] = useState('')
+  const [brandingFooter, setBrandingFooter] = useState('')
+
+  const [groupsDraft, setGroupsDraft] = useState<Array<{ id: string; name: string }>>([])
+  const [bindingsDraft, setBindingsDraft] = useState<Array<{ monitorId: string; componentGroupId: string | null }>>([])
+  const [maintenanceDraft, setMaintenanceDraft] = useState<Array<{ id: string; title: string; message: string; publishAt: string; startsAt: string; endsAt: string; isPublic: boolean }>>([])
 
   const selectedPage = useMemo(() => {
     const pages = statusPagesQuery.data ?? []
@@ -56,120 +61,103 @@ export function StatusPagesPage() {
     return pages.find((page) => page.id === selectedPageId) ?? pages[0]
   }, [selectedPageId, statusPagesQuery.data])
 
+  const configQuery = useStatusPageV2ConfigQuery(selectedPage?.id ?? null)
   const effectivePreviewSlug = previewSlugInput.trim() || selectedPage?.slug || null
   const publicPreviewQuery = usePublicStatusPageQuery(effectivePreviewSlug)
 
-  const persistedWorkingMonitors = selectedPage ? workingMonitorsByPage[selectedPage.id] : undefined
-  const workingMonitors = useMemo(
-    () => persistedWorkingMonitors ?? publicPreviewQuery.data?.monitors ?? [],
-    [persistedWorkingMonitors, publicPreviewQuery.data?.monitors],
-  )
-
-  function setWorkingMonitors(next: PublicMonitorSummary[]) {
+  useEffect(() => {
     if (!selectedPage) return
-    setWorkingMonitorsByPage((prev) => ({ ...prev, [selectedPage.id]: next }))
-  }
+    setPreviewSlugInput(selectedPage.slug)
+    setBrandingName(selectedPage.branding?.brandName ?? '')
+    setBrandingTheme(selectedPage.branding?.brandTheme ?? '')
+    setBrandingLogoUrl(selectedPage.branding?.brandLogoUrl ?? '')
+    setBrandingHeader(selectedPage.branding?.brandCustomHeader ?? '')
+    setBrandingFooter(selectedPage.branding?.brandCustomFooter ?? '')
+  }, [selectedPage?.id])
 
-  const attachedMonitorIds = useMemo(() => new Set(workingMonitors.map((monitor) => monitor.monitorId)), [workingMonitors])
+  useEffect(() => {
+    if (!configQuery.data) return
+    setGroupsDraft(configQuery.data.componentGroups.map((g) => ({ id: g.id, name: g.name })))
+    setBindingsDraft(configQuery.data.monitorBindings.map((m) => ({ monitorId: m.monitorId, componentGroupId: m.componentGroupId })))
+    setMaintenanceDraft(
+      configQuery.data.maintenanceAnnouncements.map((m) => ({
+        id: m.id,
+        title: m.title,
+        message: m.message,
+        publishAt: m.publishAt.slice(0, 16),
+        startsAt: m.startsAt ? m.startsAt.slice(0, 16) : '',
+        endsAt: m.endsAt ? m.endsAt.slice(0, 16) : '',
+        isPublic: m.isPublic,
+      })),
+    )
+  }, [configQuery.data])
 
-  const availableMonitors = useMemo(() => {
-    const monitors = monitorsQuery.data ?? []
-    return monitors.filter((monitor) => !attachedMonitorIds.has(monitor.id))
-  }, [attachedMonitorIds, monitorsQuery.data])
+  const monitorCatalog = monitorsQuery.data ?? []
 
   async function refreshStatusPages() {
     await queryClient.invalidateQueries({ queryKey: ['status-pages'] })
   }
 
-  async function refreshPreview(slugToRefresh: string | null) {
-    await queryClient.invalidateQueries({ queryKey: ['status-pages', 'public', slugToRefresh] })
-  }
-
   async function createPage() {
-    const payload = {
-      name: name.trim(),
-      slug: slug.trim(),
-      isPublic,
-    }
-
-    if (!payload.name) {
-      notify.error('Page name is required.')
-      return
-    }
-
-    if (!payload.slug || !slugRegex.test(payload.slug)) {
-      notify.error('Slug must use lowercase letters, numbers and hyphens only.')
-      return
-    }
-
+    const payload = { name: name.trim(), slug: slug.trim(), isPublic }
+    if (!payload.name) return notify.error('Page name is required.')
+    if (!payload.slug || !slugRegex.test(payload.slug)) return notify.error('Slug must use lowercase letters, numbers and hyphens only.')
     try {
       const created = await createPageMutation.mutateAsync(payload)
       setName('')
       setSlug('')
-      setIsPublic(true)
       await refreshStatusPages()
       setSelectedPageId(created.id)
-      setPreviewSlugInput(created.slug)
       notify.success('Status page created.')
     } catch (error) {
       notify.error(getStatusPageApiErrorMessage(error, 'Failed to create status page.'))
     }
   }
 
-  async function saveMonitorOrder() {
+  async function saveBranding() {
     if (!selectedPage) return
-
     try {
-      await attachMonitorsMutation.mutateAsync({
+      await updatePageMutation.mutateAsync({
         pageId: selectedPage.id,
-        monitorIds: workingMonitors.map((monitor) => monitor.monitorId),
+        data: {
+          brandName: brandingName,
+          brandTheme: brandingTheme,
+          brandLogoUrl: brandingLogoUrl,
+          brandCustomHeader: brandingHeader,
+          brandCustomFooter: brandingFooter,
+        },
       })
-      await refreshPreview(selectedPage.slug)
-      notify.success('Monitor bindings saved.')
+      await refreshStatusPages()
+      notify.success('Branding saved.')
     } catch (error) {
-      notify.error(getStatusPageApiErrorMessage(error, 'Failed to save monitor bindings.'))
+      notify.error(getStatusPageApiErrorMessage(error, 'Failed to save branding.'))
     }
   }
 
-  async function attachMonitor() {
-    if (!selectedPage || !selectedMonitorId) return
-    const monitor = (monitorsQuery.data ?? []).find((item) => item.id === selectedMonitorId)
-    if (!monitor) return
-
-    setWorkingMonitors([
-      ...workingMonitors,
-      {
-        monitorId: monitor.id,
-        monitorName: monitor.name,
-        displayOrder: workingMonitors.length,
-        currentStatus: 'UNKNOWN',
-        statusCode: null,
-        latencyMs: null,
-        checkedAt: null,
-      },
-    ])
-    setSelectedMonitorId('')
-  }
-
-  function moveMonitor(index: number, direction: -1 | 1) {
-    const target = index + direction
-    if (target < 0 || target >= workingMonitors.length) return
-    const next = [...workingMonitors]
-    const [item] = next.splice(index, 1)
-    next.splice(target, 0, item)
-    setWorkingMonitors(next)
-  }
-
-  async function removeMonitor(monitorId: string) {
+  async function saveV2Config() {
     if (!selectedPage) return
-
     try {
-      await removeMonitorMutation.mutateAsync({ pageId: selectedPage.id, monitorId })
-      setWorkingMonitors(workingMonitors.filter((monitor) => monitor.monitorId !== monitorId))
-      await refreshPreview(selectedPage.slug)
-      notify.success('Monitor removed from status page.')
+      await upsertConfigMutation.mutateAsync({
+        pageId: selectedPage.id,
+        data: {
+          componentGroups: groupsDraft.map((group, index) => ({ id: group.id, name: group.name, displayOrder: index })),
+          monitorBindings: bindingsDraft.map((binding, index) => ({ monitorId: binding.monitorId, displayOrder: index, componentGroupId: binding.componentGroupId })),
+          maintenanceAnnouncements: maintenanceDraft.map((m) => ({
+            id: m.id,
+            title: m.title,
+            message: m.message,
+            publishAt: new Date(m.publishAt).toISOString(),
+            startsAt: m.startsAt ? new Date(m.startsAt).toISOString() : null,
+            endsAt: m.endsAt ? new Date(m.endsAt).toISOString() : null,
+            isPublic: m.isPublic,
+          })),
+        },
+      })
+      await queryClient.invalidateQueries({ queryKey: ['status-pages', selectedPage.id, 'config'] })
+      await queryClient.invalidateQueries({ queryKey: ['status-pages', 'public', selectedPage.slug] })
+      notify.success('Status Page v2 config saved.')
     } catch (error) {
-      notify.error(getStatusPageApiErrorMessage(error, 'Failed to remove monitor.'))
+      notify.error(getStatusPageApiErrorMessage(error, 'Failed to save v2 config.'))
     }
   }
 
@@ -186,122 +174,87 @@ export function StatusPagesPage() {
       <header className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold">Status Pages</h2>
-          <p className="text-sm text-text-secondary">Admin controls + live public preview by slug.</p>
+          <p className="text-sm text-text-secondary">Status Page v2: groups, maintenance announcements, and branding.</p>
         </div>
         <Badge tone="warning">Admin + Public view</Badge>
       </header>
 
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
         <div className="space-y-4 rounded-lg border border-surface-border bg-bg-elevated p-4">
           <div className="rounded-md border border-surface-border p-3">
-            <p className="mb-3 text-sm font-medium text-text-primary">Admin controls</p>
+            <p className="mb-3 text-sm font-medium text-text-primary">Create page</p>
             <div className="grid gap-3 md:grid-cols-[1fr_220px_auto_auto] md:items-end">
-              <Field label="Page name">
-                <TextInput value={name} maxLength={120} onChange={(event) => setName(event.target.value)} placeholder="Production Status" />
-              </Field>
-              <Field label="Slug">
-                <TextInput value={slug} maxLength={80} onChange={(event) => setSlug(event.target.value)} placeholder="production-status" />
-              </Field>
-              <label className="flex items-center gap-2 text-sm text-text-secondary">
-                <input type="checkbox" checked={isPublic} onChange={(event) => setIsPublic(event.target.checked)} />
-                Public
-              </label>
-              <Button disabled={createPageMutation.isPending} onClick={createPage}>
-                Create page
-              </Button>
+              <Field label="Page name"><TextInput value={name} maxLength={120} onChange={(e) => setName(e.target.value)} /></Field>
+              <Field label="Slug"><TextInput value={slug} maxLength={80} onChange={(e) => setSlug(e.target.value)} /></Field>
+              <label className="flex items-center gap-2 text-sm text-text-secondary"><input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />Public</label>
+              <Button disabled={createPageMutation.isPending} onClick={createPage}>Create page</Button>
             </div>
           </div>
 
-          {(statusPagesQuery.data?.length ?? 0) > 0 ? (
+          {selectedPage ? (
             <>
               <div className="grid gap-2">
                 <p className="text-sm font-medium">Existing pages</p>
-                <div className="grid gap-2 max-h-44 overflow-auto pr-1">
-                  {(statusPagesQuery.data ?? []).map((page) => {
-                    const selected = selectedPage?.id === page.id
-                    return (
-                      <button
-                        key={page.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedPageId(page.id)
-                          setPreviewSlugInput(page.slug)
-                          setSelectedMonitorId('')
-                        }}
-                        className={`rounded-md border p-3 text-left transition ${
-                          selected ? 'border-accent bg-bg-panel' : 'border-surface-border bg-bg-base hover:border-accent/40'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="font-medium">{page.name}</p>
-                          <Badge tone={page.isPublic ? 'success' : 'neutral'}>{page.isPublic ? 'Public' : 'Private'}</Badge>
-                        </div>
-                        <p className="text-xs text-text-muted">/{page.slug}</p>
-                      </button>
-                    )
-                  })}
+                <div className="grid gap-2 max-h-36 overflow-auto pr-1">
+                  {(statusPagesQuery.data ?? []).map((page) => (
+                    <button key={page.id} type="button" onClick={() => setSelectedPageId(page.id)} className={`rounded-md border p-2 text-left ${selectedPage.id === page.id ? 'border-accent' : 'border-surface-border'}`}>
+                      <div className="flex items-center justify-between"><span>{page.name}</span><Badge tone={page.isPublic ? 'success' : 'neutral'}>{page.isPublic ? 'Public' : 'Private'}</Badge></div>
+                      <p className="text-xs text-text-muted">/{page.slug}</p>
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {selectedPage ? (
-                <div className="space-y-3 rounded-md border border-surface-border p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="font-medium">Monitor binding for {selectedPage.name}</p>
-                      <p className="text-xs text-text-muted">Attach, order, and remove monitors shown publicly.</p>
-                    </div>
-                    <Button variant="secondary" disabled={attachMonitorsMutation.isPending} onClick={saveMonitorOrder}>
-                      Save order
-                    </Button>
-                  </div>
+              <div className="rounded-md border border-surface-border p-3 space-y-2">
+                <p className="text-sm font-medium">Branding</p>
+                <Field label="Brand name"><TextInput value={brandingName} onChange={(e) => setBrandingName(e.target.value)} /></Field>
+                <Field label="Theme token"><TextInput value={brandingTheme} onChange={(e) => setBrandingTheme(e.target.value)} placeholder="light|dark|custom" /></Field>
+                <Field label="Logo URL"><TextInput value={brandingLogoUrl} onChange={(e) => setBrandingLogoUrl(e.target.value)} /></Field>
+                <Field label="Header text"><TextInput value={brandingHeader} onChange={(e) => setBrandingHeader(e.target.value)} /></Field>
+                <Field label="Footer text"><TextInput value={brandingFooter} onChange={(e) => setBrandingFooter(e.target.value)} /></Field>
+                <Button variant="secondary" onClick={saveBranding}>Save branding</Button>
+              </div>
 
-                  <div className="grid gap-2 md:grid-cols-[1fr_auto] md:items-end">
-                    <Field label="Add monitor">
-                      <select
-                        className="w-full rounded-md border border-surface-border bg-bg-panel px-3 py-2 text-sm"
-                        value={selectedMonitorId}
-                        onChange={(event) => setSelectedMonitorId(event.target.value)}
-                      >
-                        <option value="">Select monitor to attach…</option>
-                        {availableMonitors.map((monitor) => (
-                          <option key={monitor.id} value={monitor.id}>
-                            {monitor.name}
-                          </option>
-                        ))}
+              <div className="rounded-md border border-surface-border p-3 space-y-3">
+                <div className="flex items-center justify-between"><p className="text-sm font-medium">Component groups + monitor binding</p><Button variant="secondary" onClick={saveV2Config}>Save v2 config</Button></div>
+                <Button variant="ghost" onClick={() => setGroupsDraft((prev) => [...prev, { id: crypto.randomUUID(), name: `Group ${prev.length + 1}` }])}>+ Add group</Button>
+                {groupsDraft.map((group, idx) => (
+                  <div key={group.id} className="flex gap-2"><TextInput value={group.name} onChange={(e) => setGroupsDraft((prev) => prev.map((g) => g.id === group.id ? { ...g, name: e.target.value } : g))} /><Button variant="ghost" onClick={() => setGroupsDraft((prev) => prev.filter((g) => g.id !== group.id))}>Remove</Button><span className="text-xs">#{idx + 1}</span></div>
+                ))}
+                <p className="text-xs text-text-muted">Bind monitors to groups:</p>
+                {monitorCatalog.map((monitor) => {
+                  const binding = bindingsDraft.find((it) => it.monitorId === monitor.id)
+                  return (
+                    <div key={monitor.id} className="grid gap-2 md:grid-cols-[1fr_1fr] md:items-center">
+                      <span className="text-sm">{monitor.name}</span>
+                      <select className="rounded-md border border-surface-border bg-bg-panel px-3 py-2 text-sm" value={binding?.componentGroupId ?? ''} onChange={(e) => setBindingsDraft((prev) => {
+                        const next = prev.filter((it) => it.monitorId !== monitor.id)
+                        next.push({ monitorId: monitor.id, componentGroupId: e.target.value || null })
+                        return next
+                      })}>
+                        <option value="">Ungrouped</option>
+                        {groupsDraft.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
                       </select>
-                    </Field>
-                    <Button variant="secondary" disabled={!selectedMonitorId} onClick={attachMonitor}>
-                      Add
-                    </Button>
-                  </div>
+                    </div>
+                  )
+                })}
+              </div>
 
-                  {workingMonitors.length > 0 ? (
-                    <ol className="space-y-2">
-                      {workingMonitors.map((monitor, index) => (
-                        <li key={monitor.monitorId} className="flex items-center justify-between rounded-md bg-bg-panel p-3">
-                          <div>
-                            <p className="text-sm font-medium">{index + 1}. {monitor.monitorName}</p>
-                            <p className="text-xs text-text-muted">Current status: {monitor.currentStatus}</p>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button variant="ghost" disabled={index === 0} onClick={() => moveMonitor(index, -1)}>
-                              ↑
-                            </Button>
-                            <Button variant="ghost" disabled={index === workingMonitors.length - 1} onClick={() => moveMonitor(index, 1)}>
-                              ↓
-                            </Button>
-                            <Button variant="ghost" onClick={() => removeMonitor(monitor.monitorId)}>
-                              Remove
-                            </Button>
-                          </div>
-                        </li>
-                      ))}
-                    </ol>
-                  ) : (
-                    <EmptyState title="No monitors attached" description="Attach monitors, then save order to publish this section." />
-                  )}
-                </div>
-              ) : null}
+              <div className="rounded-md border border-surface-border p-3 space-y-2">
+                <div className="flex items-center justify-between"><p className="text-sm font-medium">Maintenance announcements</p><Button variant="ghost" onClick={() => setMaintenanceDraft((prev) => [...prev, { id: crypto.randomUUID(), title: '', message: '', publishAt: new Date().toISOString().slice(0, 16), startsAt: '', endsAt: '', isPublic: true }])}>+ Add announcement</Button></div>
+                {maintenanceDraft.length === 0 ? <p className="text-sm text-text-secondary">No announcements configured.</p> : maintenanceDraft.map((item) => (
+                  <div key={item.id} className="rounded bg-bg-panel p-2 space-y-2">
+                    <TextInput value={item.title} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, title: e.target.value } : m))} placeholder="Title" />
+                    <TextInput value={item.message} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, message: e.target.value } : m))} placeholder="Message" />
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <input type="datetime-local" value={item.publishAt} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, publishAt: e.target.value } : m))} />
+                      <input type="datetime-local" value={item.startsAt} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, startsAt: e.target.value } : m))} />
+                      <input type="datetime-local" value={item.endsAt} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, endsAt: e.target.value } : m))} />
+                    </div>
+                    <label className="text-sm"><input type="checkbox" checked={item.isPublic} onChange={(e) => setMaintenanceDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, isPublic: e.target.checked } : m))} /> Public</label>
+                  </div>
+                ))}
+              </div>
             </>
           ) : (
             <EmptyState title="No status pages yet" description="Create the first status page to start building public health views." />
@@ -309,68 +262,26 @@ export function StatusPagesPage() {
         </div>
 
         <aside className="space-y-3 rounded-lg border border-surface-border bg-bg-elevated p-4">
-          <div className="rounded-md border border-surface-border p-3">
-            <p className="mb-2 text-sm font-medium">Public view preview</p>
-            <p className="mb-3 text-xs text-text-muted">Preview uses public endpoint by slug and is read-only.</p>
-            <Field label="Preview slug">
-              <TextInput value={previewSlugInput} onChange={(event) => setPreviewSlugInput(event.target.value)} placeholder="production-status" />
-            </Field>
-          </div>
-
+          <Field label="Preview slug"><TextInput value={previewSlugInput} onChange={(e) => setPreviewSlugInput(e.target.value)} /></Field>
           {!previewSlugInput.trim() ? (
             <EmptyState title="Enter a slug" description="Provide a slug to fetch public status page preview." />
           ) : publicPreviewQuery.isLoading ? (
             <LoadingState title="Loading preview" description="Fetching public status page payload." />
           ) : publicPreviewQuery.isError ? (
-            <ErrorState
-              title="Public preview unavailable"
-              description="Slug missing, non-public, or not found. Verify slug and page visibility."
-            />
+            <ErrorState title="Public preview unavailable" description="Slug missing, non-public, or not found." />
           ) : publicPreviewQuery.data ? (
             <div className="space-y-3 rounded-md border border-surface-border p-3">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="font-semibold">{publicPreviewQuery.data.page.name}</h3>
-                <Badge tone={statusTone(publicPreviewQuery.data.overallStatus)}>{publicPreviewQuery.data.overallStatus}</Badge>
+              <div className="flex items-center justify-between"><h3 className="font-semibold">{publicPreviewQuery.data.page.branding?.brandName || publicPreviewQuery.data.page.name}</h3><Badge tone={statusTone(publicPreviewQuery.data.overallStatus)}>{publicPreviewQuery.data.overallStatus}</Badge></div>
+              {publicPreviewQuery.data.page.branding?.brandCustomHeader ? <p className="text-xs text-text-muted">{publicPreviewQuery.data.page.branding.brandCustomHeader}</p> : null}
+              {publicPreviewQuery.data.maintenanceAnnouncements.length > 0 && (
+                <div className="space-y-2"><p className="text-sm font-medium">Active maintenance</p>{publicPreviewQuery.data.maintenanceAnnouncements.map((m) => <div key={m.id} className="rounded bg-bg-panel p-2 text-xs"><p className="font-semibold">{m.title}</p><p>{m.message}</p></div>)}</div>
+              )}
+              <div className="space-y-2"><p className="text-sm font-medium">Services</p>{publicPreviewQuery.data.componentGroups.map((group) => (
+                <div key={group.id}><p className="text-xs font-semibold text-text-muted">{group.name}</p><ul className="space-y-2">{publicPreviewQuery.data.monitors.filter((m) => m.componentGroupId === group.id).map((monitor) => <li key={monitor.monitorId} className="rounded-md bg-bg-panel p-2"><div className="flex justify-between"><span>{monitor.monitorName}</span><Badge tone={statusTone(monitor.currentStatus)}>{monitor.currentStatus}</Badge></div><p className="text-xs">Last check: {formatDateTime(monitor.checkedAt)}</p></li>)}</ul></div>
+              ))}
+              <ul className="space-y-2">{publicPreviewQuery.data.monitors.filter((m) => !m.componentGroupId).map((monitor) => <li key={monitor.monitorId} className="rounded-md bg-bg-panel p-2"><div className="flex justify-between"><span>{monitor.monitorName}</span><Badge tone={statusTone(monitor.currentStatus)}>{monitor.currentStatus}</Badge></div></li>)}</ul>
               </div>
-              <p className="text-xs text-text-muted">/{publicPreviewQuery.data.page.slug}</p>
-
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Services</p>
-                {publicPreviewQuery.data.monitors.length > 0 ? (
-                  <ul className="space-y-2">
-                    {publicPreviewQuery.data.monitors.map((monitor) => (
-                      <li key={monitor.monitorId} className="rounded-md bg-bg-panel p-3">
-                        <div className="mb-1 flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium">{monitor.monitorName}</p>
-                          <Badge tone={statusTone(monitor.currentStatus)}>{monitor.currentStatus}</Badge>
-                        </div>
-                        <p className="text-xs text-text-muted">
-                          Status code: {monitor.statusCode ?? '—'} · Latency: {monitor.latencyMs ?? '—'}ms · Last check: {formatDateTime(monitor.checkedAt)}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-text-secondary">No monitors are currently published on this page.</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Incident timeline</p>
-                {publicPreviewQuery.data.incidents.length > 0 ? (
-                  <ul className="space-y-2">
-                    {publicPreviewQuery.data.incidents.map((incident) => (
-                      <li key={incident.incidentId} className="rounded-md bg-bg-panel p-3 text-sm">
-                        <p className="font-medium">{incident.monitorName}</p>
-                        <p className="text-xs text-text-muted">{incident.state} · opened {formatDateTime(incident.openedAt)}</p>
-                        <p className="mt-1 text-xs text-text-secondary">{incident.reason}</p>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-text-secondary">No incidents currently visible for this page.</p>
-                )}
-              </div>
+              {publicPreviewQuery.data.page.branding?.brandCustomFooter ? <p className="text-xs text-text-muted">{publicPreviewQuery.data.page.branding.brandCustomFooter}</p> : null}
             </div>
           ) : null}
         </aside>

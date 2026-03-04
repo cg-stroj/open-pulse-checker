@@ -18,6 +18,12 @@ async function mockApi(
   setupState: SetupMockState = { setupRequired: false, setupLocked: true, setupToken: null },
   options: SetupMockOptions = {},
 ) {
+  let brandName: string | null = null
+  let brandTheme: string | null = null
+  let brandLogoUrl: string | null = null
+  let brandCustomHeader: string | null = null
+  let brandCustomFooter: string | null = null
+
   await page.route('**/actuator/metrics/**', async (route) => {
     const url = new URL(route.request().url())
     const metricName = decodeURIComponent(url.pathname.split('/actuator/metrics/')[1] ?? '')
@@ -235,19 +241,40 @@ async function mockApi(
       return json({ items: [], page: 0, totalPages: 1, totalItems: 0, hasNext: false, hasPrevious: false })
     }
 
+    if (/\/api\/v1\/status-pages\/[^/]+\/config$/.test(pathname) && method === 'GET') {
+      return json({ componentGroups: [], monitorBindings: [], maintenanceAnnouncements: [] })
+    }
+
+    if (/\/api\/v1\/status-pages\/[^/]+\/config$/.test(pathname) && method === 'PUT') {
+      return json(JSON.parse(route.request().postData() || '{}'))
+    }
+
+    if (/\/api\/v1\/status-pages\/[^/]+$/.test(pathname) && method === 'PUT') {
+      const payload = JSON.parse(route.request().postData() || '{}')
+      brandName = payload.brandName ?? brandName
+      brandTheme = payload.brandTheme ?? brandTheme
+      brandLogoUrl = payload.brandLogoUrl ?? brandLogoUrl
+      brandCustomHeader = payload.brandCustomHeader ?? brandCustomHeader
+      brandCustomFooter = payload.brandCustomFooter ?? brandCustomFooter
+      return json({ id: pathname.split('/').pop(), name: 'Main Status', slug: 'main-status', isPublic: true, branding: { brandName, brandTheme, brandLogoUrl, brandCustomHeader, brandCustomFooter }, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+    }
+
     if (pathname.endsWith('/status-pages') && method === 'GET') {
-      return json([{ id: 'sp-1', name: 'Main Status', slug: 'main-status', isPublic: true, createdAt: new Date().toISOString() }])
+      return json([{ id: 'sp-1', name: 'Main Status', slug: 'main-status', isPublic: true, branding: { brandName, brandTheme, brandLogoUrl, brandCustomHeader, brandCustomFooter }, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }])
     }
 
     if (pathname.endsWith('/status-pages') && method === 'POST') {
       const payload = JSON.parse(route.request().postData() || '{}')
-      return json({ id: 'sp-new', name: payload.name, slug: payload.slug, isPublic: payload.isPublic ?? true, createdAt: new Date().toISOString() }, 201)
+      return json({ id: 'sp-new', name: payload.name, slug: payload.slug, isPublic: payload.isPublic ?? true, branding: { brandName: null, brandTheme: null, brandLogoUrl: null, brandCustomHeader: null, brandCustomFooter: null }, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, 201)
     }
 
     if (pathname.includes('/public/status-pages/') && method === 'GET') {
       const slug = pathname.split('/').pop() || 'main-status'
       return json({
-        statusPage: { id: 'sp-1', name: 'Main Status', slug, isPublic: true, createdAt: new Date().toISOString() },
+        page: { id: 'sp-1', name: 'Main Status', slug, isPublic: true, branding: { brandName: brandName ?? 'Main Status', brandTheme: brandTheme ?? 'light', brandLogoUrl, brandCustomHeader, brandCustomFooter }, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        overallStatus: 'OPERATIONAL',
+        componentGroups: [],
+        maintenanceAnnouncements: [],
         monitors: [],
         incidents: [],
       })
@@ -304,6 +331,21 @@ test('key action flow smoke: create status page', async ({ page }) => {
   await page.getByRole('button', { name: 'Create page' }).click()
 
   await expect(page.getByText('Status page created.')).toBeVisible()
+})
+
+test('status page v2 smoke: branding + config saved and public preview rendered', async ({ page }) => {
+  await seedAuthSession(page)
+  await page.goto('/status-pages')
+
+  await page.getByLabel('Brand name').fill('OpenPulse Public')
+  await page.getByRole('button', { name: 'Save branding' }).click()
+  await expect(page.getByText('Branding saved.')).toBeVisible()
+
+  await page.getByRole('button', { name: '+ Add group' }).click()
+  await page.getByRole('button', { name: 'Save v2 config' }).click()
+  await expect(page.getByText('Status Page v2 config saved.')).toBeVisible()
+
+  await expect(page.getByText('OpenPulse Public')).toBeVisible()
 })
 
 test('first-run setup wizard creates admin and redirects to sign in', async ({ page }) => {

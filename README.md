@@ -146,6 +146,7 @@ Runbook reference: [`OPERATIONS_RUNBOOK.md`](./OPERATIONS_RUNBOOK.md)
 - Technical documentation: [`DOCUMENTATION.md`](./DOCUMENTATION.md)
 - Architecture snapshot: [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 - Operations and rollback procedures: [`OPERATIONS_RUNBOOK.md`](./OPERATIONS_RUNBOOK.md)
+- Status Page v2 runbook: [`docs/status-page-v2-runbook.md`](./docs/status-page-v2-runbook.md)
 - Release gate checklist: [`docs/v2.1-release-readiness-checklist.md`](./docs/v2.1-release-readiness-checklist.md)
 
 ## License
