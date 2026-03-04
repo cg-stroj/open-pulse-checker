@@ -10,7 +10,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties({SchedulerProperties.class, AlertingProperties.class})
+@EnableConfigurationProperties({
+        SchedulerProperties.class,
+        AlertingProperties.class,
+        EmailAlertingProperties.class,
+        TelegramAlertingProperties.class,
+        SlackAlertingProperties.class,
+        DiscordAlertingProperties.class,
+        TeamsAlertingProperties.class
+})
 public class SchedulerConfig {
 
     @Bean

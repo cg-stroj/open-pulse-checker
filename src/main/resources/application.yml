@@ -49,6 +49,35 @@ openpulse:
       url: ""
       max-attempts: 3
       initial-backoff-ms: 100
+    email:
+      enabled: false
+      url: ""
+      to: ""
+      bearer-token: ""
+      max-attempts: 3
+      initial-backoff-ms: 100
+    telegram:
+      enabled: false
+      bot-token: ""
+      chat-id: ""
+      api-base-url: "https://api.telegram.org"
+      max-attempts: 3
+      initial-backoff-ms: 100
+    slack:
+      enabled: false
+      webhook-url: ""
+      max-attempts: 3
+      initial-backoff-ms: 100
+    discord:
+      enabled: false
+      webhook-url: ""
+      max-attempts: 3
+      initial-backoff-ms: 100
+    teams:
+      enabled: false
+      webhook-url: ""
+      max-attempts: 3
+      initial-backoff-ms: 100
   security:
     auth-mode: db
     bootstrap-admin:

@@ -1,5 +1,10 @@
 package io.openpulsechecker.notificationpolicy;
 
 public enum NotificationChannel {
-    WEBHOOK
+    WEBHOOK,
+    EMAIL,
+    TELEGRAM,
+    SLACK,
+    DISCORD,
+    TEAMS
 }

@@ -61,13 +61,13 @@ class AdminNotificationPolicyApiIntegrationTest extends H2TestDatabaseSupport {
                   "cooldownSeconds":120,
                   "dedupSeconds":60,
                   "routes":[
-                    {"severity":"CRITICAL","webhookEnabled":true},
-                    {"severity":"HIGH","webhookEnabled":true},
-                    {"severity":"MEDIUM","webhookEnabled":true},
-                    {"severity":"LOW","webhookEnabled":false},
-                    {"severity":"INFO","webhookEnabled":false}
+                    {"severity":"CRITICAL","channels":["WEBHOOK"]},
+                    {"severity":"HIGH","channels":["WEBHOOK"]},
+                    {"severity":"MEDIUM","channels":["WEBHOOK"]},
+                    {"severity":"LOW","channels":["EMAIL"]},
+                    {"severity":"INFO","channels":["TELEGRAM"]}
                   ],
-                  "escalationSteps":[{"stepOrder":1,"afterSeconds":0,"minSeverity":"CRITICAL","webhookEnabled":true}]
+                  "escalationSteps":[{"stepOrder":1,"afterSeconds":0,"minSeverity":"CRITICAL","channels":["WEBHOOK","SLACK"]}]
                 }
                 """;
 

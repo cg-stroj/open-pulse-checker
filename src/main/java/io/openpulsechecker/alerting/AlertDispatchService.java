@@ -6,6 +6,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -77,6 +79,33 @@ public class AlertDispatchService {
                 .tag("outcome", outcome)
                 .register(meterRegistry)
                 .record(Duration.between(occurredAt, Instant.now(clock)));
+    }
+
+    public void dispatchTest(UUID policyId, Set<io.openpulsechecker.notificationpolicy.NotificationChannel> channels, String reason) {
+        AlertEvent testEvent = new AlertEvent(
+                AlertEventType.INCIDENT_OPENED,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                Instant.now(clock),
+                reason == null ? "policy-test" : reason);
+        NotificationDispatchPlan plan = new NotificationDispatchPlan(policyId,
+                io.openpulsechecker.notificationpolicy.NotificationSeverity.CRITICAL,
+                0,
+                0,
+                channels,
+                null);
+        for (AlertNotifier notifier : notifiers) {
+            if (!channels.contains(notifier.channel())) {
+                continue;
+            }
+            try {
+                notifier.notify(testEvent, plan);
+                recordDispatchMetrics(notifier.channel().name(), "success", Instant.now(clock), testEvent.occurredAt());
+            } catch (Exception ex) {
+                recordDispatchMetrics(notifier.channel().name(), "failed", Instant.now(clock), testEvent.occurredAt());
+                log.error("Test notifier {} failed", notifier.getClass().getSimpleName(), ex);
+            }
+        }
     }
 
     private boolean isSuppressed(AlertEvent event, NotificationDispatchPlan plan, String channel, Instant now) {

@@ -13,6 +13,7 @@ import io.openpulsechecker.notificationpolicy.NotificationSeverity;
 import io.openpulsechecker.persistence.StatusPageMonitorEntity;
 import io.openpulsechecker.persistence.StatusPageMonitorRepository;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,11 +54,11 @@ class NotificationPolicyResolverTest {
     private NotificationPolicyModel model(UUID id) {
         return new NotificationPolicyModel(id, NotificationPolicyScopeType.MONITOR, UUID.randomUUID(), true, 0, 0,
                 List.of(
-                        new NotificationPolicyModel.RouteRule(NotificationSeverity.CRITICAL, true),
-                        new NotificationPolicyModel.RouteRule(NotificationSeverity.HIGH, true),
-                        new NotificationPolicyModel.RouteRule(NotificationSeverity.MEDIUM, true),
-                        new NotificationPolicyModel.RouteRule(NotificationSeverity.LOW, true),
-                        new NotificationPolicyModel.RouteRule(NotificationSeverity.INFO, true)
+                        new NotificationPolicyModel.RouteRule(NotificationSeverity.CRITICAL, EnumSet.of(io.openpulsechecker.notificationpolicy.NotificationChannel.WEBHOOK)),
+                        new NotificationPolicyModel.RouteRule(NotificationSeverity.HIGH, EnumSet.of(io.openpulsechecker.notificationpolicy.NotificationChannel.WEBHOOK)),
+                        new NotificationPolicyModel.RouteRule(NotificationSeverity.MEDIUM, EnumSet.of(io.openpulsechecker.notificationpolicy.NotificationChannel.WEBHOOK)),
+                        new NotificationPolicyModel.RouteRule(NotificationSeverity.LOW, EnumSet.of(io.openpulsechecker.notificationpolicy.NotificationChannel.WEBHOOK)),
+                        new NotificationPolicyModel.RouteRule(NotificationSeverity.INFO, EnumSet.of(io.openpulsechecker.notificationpolicy.NotificationChannel.WEBHOOK))
                 ),
                 List.of(), Instant.now(), Instant.now());
     }

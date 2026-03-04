@@ -1,8 +1,9 @@
 package io.openpulsechecker.notificationpolicy;
 
 import java.time.Instant;
-import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.List;
 
 public record NotificationPolicyModel(
         UUID id,
@@ -16,6 +17,6 @@ public record NotificationPolicyModel(
         Instant createdAt,
         Instant updatedAt
 ) {
-    public record RouteRule(NotificationSeverity severity, boolean webhookEnabled) {}
-    public record EscalationStep(int stepOrder, int afterSeconds, NotificationSeverity minSeverity, boolean webhookEnabled) {}
+    public record RouteRule(NotificationSeverity severity, Set<NotificationChannel> channels) {}
+    public record EscalationStep(int stepOrder, int afterSeconds, NotificationSeverity minSeverity, Set<NotificationChannel> channels) {}
 }

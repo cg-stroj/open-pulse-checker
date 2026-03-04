@@ -45,16 +45,13 @@ public class NotificationPolicyResolver {
         NotificationPolicyModel.RouteRule route = policy.routes().stream()
                 .filter(r -> r.severity() == severity)
                 .findFirst()
-                .orElse(new NotificationPolicyModel.RouteRule(severity, true));
+                .orElse(new NotificationPolicyModel.RouteRule(severity, EnumSet.of(NotificationChannel.WEBHOOK)));
 
-        Set<NotificationChannel> channels = EnumSet.noneOf(NotificationChannel.class);
-        if (route.webhookEnabled()) {
-            channels.add(NotificationChannel.WEBHOOK);
-        }
+        Set<NotificationChannel> channels = EnumSet.copyOf(route.channels());
 
         for (NotificationPolicyModel.EscalationStep step : policy.escalationSteps()) {
-            if (step.afterSeconds() == 0 && severity.ordinal() <= step.minSeverity().ordinal() && step.webhookEnabled()) {
-                channels.add(NotificationChannel.WEBHOOK);
+            if (step.afterSeconds() == 0 && severity.ordinal() <= step.minSeverity().ordinal()) {
+                channels.addAll(step.channels());
             }
         }
 

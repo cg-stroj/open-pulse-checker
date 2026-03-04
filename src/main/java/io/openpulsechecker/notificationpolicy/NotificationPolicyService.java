@@ -64,11 +64,11 @@ public class NotificationPolicyService {
 
     public NotificationPolicyModel toModel(NotificationPolicyEntity entity) {
         List<NotificationPolicyModel.RouteRule> routes = routeRuleRepository.findByPolicyId(entity.getId()).stream()
-                .map(r -> new NotificationPolicyModel.RouteRule(r.getSeverity(), r.isWebhookEnabled()))
+                .map(r -> new NotificationPolicyModel.RouteRule(r.getSeverity(), r.toChannels()))
                 .sorted(Comparator.comparing(NotificationPolicyModel.RouteRule::severity))
                 .toList();
         List<NotificationPolicyModel.EscalationStep> steps = escalationStepRepository.findByPolicyIdOrderByStepOrderAsc(entity.getId()).stream()
-                .map(s -> new NotificationPolicyModel.EscalationStep(s.getStepOrder(), s.getAfterSeconds(), s.getMinSeverity(), s.isWebhookEnabled()))
+                .map(s -> new NotificationPolicyModel.EscalationStep(s.getStepOrder(), s.getAfterSeconds(), s.getMinSeverity(), s.toChannels()))
                 .toList();
         return new NotificationPolicyModel(entity.getId(), entity.getScopeType(), entity.getScopeRefId(), entity.isEnabled(),
                 entity.getCooldownSeconds(), entity.getDedupSeconds(), routes, steps, entity.getCreatedAt(), entity.getUpdatedAt());
@@ -89,7 +89,7 @@ public class NotificationPolicyService {
             NotificationRouteRuleEntity entity = new NotificationRouteRuleEntity();
             entity.setPolicyId(policyId);
             entity.setSeverity(route.severity());
-            entity.setWebhookEnabled(route.webhookEnabled());
+            entity.setChannels(route.channels());
             routeRuleRepository.save(entity);
         }
         for (NotificationPolicyModel.EscalationStep step : input.escalationSteps()) {
@@ -98,7 +98,7 @@ public class NotificationPolicyService {
             entity.setStepOrder(step.stepOrder());
             entity.setAfterSeconds(step.afterSeconds());
             entity.setMinSeverity(step.minSeverity());
-            entity.setWebhookEnabled(step.webhookEnabled());
+            entity.setChannels(step.channels());
             escalationStepRepository.save(entity);
         }
     }
@@ -110,10 +110,16 @@ public class NotificationPolicyService {
         if (input.scopeType() == NotificationPolicyScopeType.MONITOR && !monitorRepository.existsById(input.scopeRefId())) throw new ResourceNotFoundException("Monitor not found: " + input.scopeRefId());
         if (input.scopeType() == NotificationPolicyScopeType.STATUS_PAGE && !statusPageRepository.existsById(input.scopeRefId())) throw new ResourceNotFoundException("Status page not found: " + input.scopeRefId());
         Set<NotificationSeverity> seenSeverities = EnumSet.noneOf(NotificationSeverity.class);
-        for (NotificationPolicyModel.RouteRule route : input.routes()) { if (!seenSeverities.add(route.severity())) throw new IllegalArgumentException("Duplicate severity route: " + route.severity()); }
+        for (NotificationPolicyModel.RouteRule route : input.routes()) {
+            if (!seenSeverities.add(route.severity())) throw new IllegalArgumentException("Duplicate severity route: " + route.severity());
+            if (route.channels() == null || route.channels().isEmpty()) throw new IllegalArgumentException("At least one channel required for route: " + route.severity());
+        }
         if (seenSeverities.size() != NotificationSeverity.values().length) throw new IllegalArgumentException("Routes must include all severities exactly once");
         Set<Integer> orders = input.escalationSteps().stream().map(NotificationPolicyModel.EscalationStep::stepOrder).collect(Collectors.toSet());
         if (orders.size() != input.escalationSteps().size()) throw new IllegalArgumentException("Escalation step order must be unique");
+        if (input.escalationSteps().stream().anyMatch(step -> step.channels() == null || step.channels().isEmpty())) {
+            throw new IllegalArgumentException("At least one channel required per escalation step");
+        }
     }
 
     private NotificationPolicyEntity requirePolicy(UUID id) {

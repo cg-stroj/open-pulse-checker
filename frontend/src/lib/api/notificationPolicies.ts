@@ -4,16 +4,18 @@ import { apiClient } from './client'
 export type NotificationPolicyScopeType = 'GLOBAL' | 'STATUS_PAGE' | 'MONITOR'
 export type NotificationSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO'
 
+export type NotificationChannel = 'WEBHOOK' | 'EMAIL' | 'TELEGRAM' | 'SLACK' | 'DISCORD' | 'TEAMS'
+
 export interface NotificationRouteRule {
   severity: NotificationSeverity
-  webhookEnabled: boolean
+  channels: NotificationChannel[]
 }
 
 export interface NotificationEscalationStep {
   stepOrder: number
   afterSeconds: number
   minSeverity: NotificationSeverity
-  webhookEnabled: boolean
+  channels: NotificationChannel[]
 }
 
 export interface NotificationPolicy {
@@ -71,6 +73,18 @@ export function useUpdateNotificationPolicyMutation() {
   return useMutation({
     mutationFn: async (payload: { id: string; data: UpsertNotificationPolicyPayload }) => {
       const response = await apiClient.put<NotificationPolicy>(`/admin/notification-policies/${payload.id}`, payload.data)
+      return response.data
+    },
+  })
+}
+
+export function useTestNotificationPolicyMutation() {
+  return useMutation({
+    mutationFn: async (payload: { id: string; channels?: NotificationChannel[]; reason?: string }) => {
+      const response = await apiClient.post(`/admin/notification-policies/${payload.id}/test`, {
+        channels: payload.channels,
+        reason: payload.reason,
+      })
       return response.data
     },
   })

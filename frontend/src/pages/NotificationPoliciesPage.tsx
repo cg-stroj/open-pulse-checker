@@ -14,15 +14,19 @@ import {
   type NotificationPolicy,
   type NotificationPolicyScopeType,
   type NotificationSeverity,
+  type NotificationChannel,
   type UpsertNotificationPolicyPayload,
   useCreateNotificationPolicyMutation,
   useNotificationPoliciesQuery,
   useUpdateNotificationPolicyMutation,
+  useTestNotificationPolicyMutation,
 } from '../lib/api/notificationPolicies'
 import { useMonitorsQuery } from '../lib/api/monitors'
 import { useStatusPagesQuery } from '../lib/api/statusPages'
 
 const severityOrder: NotificationSeverity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO']
+
+const channelOrder: NotificationChannel[] = ['WEBHOOK', 'EMAIL', 'TELEGRAM', 'SLACK', 'DISCORD', 'TEAMS']
 
 interface FormState {
   scopeType: NotificationPolicyScopeType
@@ -30,12 +34,12 @@ interface FormState {
   enabled: boolean
   cooldownSeconds: string
   dedupSeconds: string
-  routes: Record<NotificationSeverity, boolean>
+  routes: Record<NotificationSeverity, NotificationChannel[]>
   escalationSteps: Array<{
     stepOrder: string
     afterSeconds: string
     minSeverity: NotificationSeverity
-    webhookEnabled: boolean
+    channels: NotificationChannel[]
   }>
 }
 
@@ -48,13 +52,13 @@ interface FormErrors {
   escalationStepRows: Record<number, { stepOrder?: string; afterSeconds?: string; minSeverity?: string }>
 }
 
-function buildDefaultRoutes(): Record<NotificationSeverity, boolean> {
+function buildDefaultRoutes(): Record<NotificationSeverity, NotificationChannel[]> {
   return {
-    CRITICAL: true,
-    HIGH: true,
-    MEDIUM: true,
-    LOW: false,
-    INFO: false,
+    CRITICAL: ['WEBHOOK'],
+    HIGH: ['WEBHOOK'],
+    MEDIUM: ['WEBHOOK'],
+    LOW: ['EMAIL'],
+    INFO: ['TELEGRAM'],
   }
 }
 
@@ -66,14 +70,14 @@ function initFormState(): FormState {
     cooldownSeconds: '120',
     dedupSeconds: '60',
     routes: buildDefaultRoutes(),
-    escalationSteps: [{ stepOrder: '1', afterSeconds: '0', minSeverity: 'CRITICAL', webhookEnabled: true }],
+    escalationSteps: [{ stepOrder: '1', afterSeconds: '0', minSeverity: 'CRITICAL', channels: ['WEBHOOK'] }],
   }
 }
 
 function fromPolicy(policy: NotificationPolicy): FormState {
   const base = buildDefaultRoutes()
   for (const route of policy.routes) {
-    base[route.severity] = route.webhookEnabled
+    base[route.severity] = route.channels
   }
   return {
     scopeType: policy.scopeType,
@@ -90,9 +94,9 @@ function fromPolicy(policy: NotificationPolicy): FormState {
               stepOrder: String(step.stepOrder),
               afterSeconds: String(step.afterSeconds),
               minSeverity: step.minSeverity,
-              webhookEnabled: step.webhookEnabled,
+              channels: step.channels,
             }))
-        : [{ stepOrder: '1', afterSeconds: '0', minSeverity: 'CRITICAL', webhookEnabled: true }],
+        : [{ stepOrder: '1', afterSeconds: '0', minSeverity: 'CRITICAL', channels: ['WEBHOOK'] }],
   }
 }
 
@@ -131,6 +135,7 @@ export function NotificationPoliciesPage() {
 
   const createMutation = useCreateNotificationPolicyMutation()
   const updateMutation = useUpdateNotificationPolicyMutation()
+  const testMutation = useTestNotificationPolicyMutation()
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [mode, setMode] = useState<'create' | 'edit'>('create')
@@ -191,7 +196,7 @@ export function NotificationPoliciesPage() {
       nextErrors.dedupSeconds = 'Dedup must be an integer greater than or equal to 0.'
     }
 
-    if (severityOrder.every((severity) => !current.routes[severity])) {
+    if (severityOrder.every((severity) => current.routes[severity].length === 0)) {
       nextErrors.routes = 'Enable at least one severity route.'
     }
 
@@ -220,6 +225,9 @@ export function NotificationPoliciesPage() {
       if (!step.minSeverity) {
         rowError.minSeverity = 'Select minimum severity.'
       }
+      if (step.channels.length === 0) {
+        rowError.minSeverity = 'Select at least one channel.'
+      }
 
       if (Object.values(rowError).some(Boolean)) {
         nextErrors.escalationStepRows[index] = rowError
@@ -240,7 +248,7 @@ export function NotificationPoliciesPage() {
         stepOrder: Number(step.stepOrder),
         afterSeconds: Number(step.afterSeconds),
         minSeverity: step.minSeverity,
-        webhookEnabled: step.webhookEnabled,
+        channels: step.channels,
       }))
       .sort((a, b) => a.stepOrder - b.stepOrder)
 
@@ -250,7 +258,7 @@ export function NotificationPoliciesPage() {
       enabled: current.enabled,
       cooldownSeconds: Number(current.cooldownSeconds),
       dedupSeconds: Number(current.dedupSeconds),
-      routes: severityOrder.map((severity) => ({ severity, webhookEnabled: current.routes[severity] })),
+      routes: severityOrder.map((severity) => ({ severity, channels: current.routes[severity] })),
       escalationSteps,
     }
   }
@@ -293,7 +301,7 @@ export function NotificationPoliciesPage() {
       return 'Select or create a policy to preview best-effort effective behavior.'
     }
 
-    const enabledSeverities = selectedPolicy.routes.filter((route) => route.webhookEnabled).map((route) => route.severity)
+    const enabledSeverities = selectedPolicy.routes.filter((route) => route.channels.length > 0).map((route) => route.severity)
 
     const scopeMessage =
       selectedPolicy.scopeType === 'MONITOR'
@@ -306,7 +314,7 @@ export function NotificationPoliciesPage() {
       ? selectedPolicy.escalationSteps
           .slice()
           .sort((a, b) => a.stepOrder - b.stepOrder)
-          .map((step) => `#${step.stepOrder}: +${step.afterSeconds}s from ${step.minSeverity} (${step.webhookEnabled ? 'webhook on' : 'webhook off'})`)
+          .map((step) => `#${step.stepOrder}: +${step.afterSeconds}s from ${step.minSeverity} [${step.channels.join(', ') || 'none'}]`)
           .join(' · ')
       : 'No escalation steps configured.'
 
@@ -355,7 +363,7 @@ export function NotificationPoliciesPage() {
             {
               key: 'routes',
               header: 'Routes',
-              render: (value) => <span>{(value as NotificationPolicy['routes']).filter((route) => route.webhookEnabled).map((route) => route.severity).join(', ') || 'none'}</span>,
+              render: (value) => <span>{(value as NotificationPolicy['routes']).filter((route) => route.channels.length > 0).map((route) => route.severity).join(', ') || 'none'}</span>,
             },
             {
               key: 'updatedAt',
@@ -418,19 +426,34 @@ export function NotificationPoliciesPage() {
 
         <div className="mt-4 rounded-md border border-surface-border p-3">
           <div className="mb-2 flex items-center justify-between">
-            <h4 className="font-medium">Severity route rules (webhook channel)</h4>
+            <h4 className="font-medium">Severity route rules (channels)</h4>
             {errors.routes ? <p className="text-xs text-red-300">{errors.routes}</p> : null}
           </div>
-          <div className="grid gap-2 md:grid-cols-5">
+          <div className="space-y-2">
             {severityOrder.map((severity) => (
-              <button
-                key={severity}
-                type="button"
-                className={`rounded-md border px-3 py-2 text-xs ${form.routes[severity] ? 'border-accent bg-bg-panel text-text-primary' : 'border-surface-border text-text-secondary'}`}
-                onClick={() => onChange('routes', { ...form.routes, [severity]: !form.routes[severity] })}
-              >
-                {severity} · {form.routes[severity] ? 'ON' : 'OFF'}
-              </button>
+              <div key={severity} className="rounded-md border border-surface-border p-2">
+                <p className="mb-2 text-xs text-text-muted">{severity}</p>
+                <div className="flex flex-wrap gap-2">
+                  {channelOrder.map((channel) => {
+                    const enabled = form.routes[severity].includes(channel)
+                    return (
+                      <button
+                        key={channel}
+                        type="button"
+                        className={`rounded-md border px-2 py-1 text-xs ${enabled ? 'border-accent bg-bg-panel text-text-primary' : 'border-surface-border text-text-secondary'}`}
+                        onClick={() => onChange('routes', {
+                          ...form.routes,
+                          [severity]: enabled
+                            ? form.routes[severity].filter((it) => it !== channel)
+                            : [...form.routes[severity], channel],
+                        })}
+                      >
+                        {channel} {enabled ? 'ON' : 'OFF'}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -443,7 +466,7 @@ export function NotificationPoliciesPage() {
               onClick={() =>
                 onChange('escalationSteps', [
                   ...form.escalationSteps,
-                  { stepOrder: String(form.escalationSteps.length + 1), afterSeconds: '300', minSeverity: 'HIGH', webhookEnabled: true },
+                  { stepOrder: String(form.escalationSteps.length + 1), afterSeconds: '300', minSeverity: 'HIGH', channels: ['WEBHOOK'] },
                 ])
               }
             >
@@ -478,12 +501,23 @@ export function NotificationPoliciesPage() {
                     {rowErrors.minSeverity ? <p className="text-xs text-red-300">{rowErrors.minSeverity}</p> : null}
                   </div>
                   <div className="flex items-end">
-                    <Button
-                      variant={step.webhookEnabled ? 'secondary' : 'ghost'}
-                      onClick={() => onChange('escalationSteps', form.escalationSteps.map((item, i) => (i === index ? { ...item, webhookEnabled: !item.webhookEnabled } : item)))}
-                    >
-                      Webhook {step.webhookEnabled ? 'ON' : 'OFF'}
-                    </Button>
+                    <div className="flex flex-wrap gap-1">
+                      {channelOrder.map((channel) => {
+                        const enabled = step.channels.includes(channel)
+                        return (
+                          <button
+                            key={channel}
+                            type="button"
+                            className={`rounded-md border px-2 py-1 text-xs ${enabled ? 'border-accent bg-bg-panel text-text-primary' : 'border-surface-border text-text-secondary'}`}
+                            onClick={() => onChange('escalationSteps', form.escalationSteps.map((item, i) => (i === index
+                              ? { ...item, channels: enabled ? item.channels.filter((it) => it !== channel) : [...item.channels, channel] }
+                              : item)))}
+                          >
+                            {channel}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                   <div className="flex items-end">
                     <Button
@@ -508,6 +542,23 @@ export function NotificationPoliciesPage() {
         <div className="mt-4 flex gap-2">
           <Button onClick={submit} disabled={createMutation.isPending || updateMutation.isPending}>{mode === 'create' ? 'Create policy' : 'Save changes'}</Button>
           <Button variant="secondary" onClick={selectForCreate}>Reset form</Button>
+          {mode === 'edit' && selectedPolicy ? (
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                try {
+                  const channels = Array.from(new Set(form.escalationSteps.flatMap((step) => step.channels).concat(severityOrder.flatMap((severity) => form.routes[severity]))))
+                  await testMutation.mutateAsync({ id: selectedPolicy.id, channels, reason: 'ui-test-trigger' })
+                  notify.success('Test notification triggered.')
+                } catch (error) {
+                  notify.error(getNotificationPolicyApiErrorMessage(error, 'Failed to trigger test notification.'))
+                }
+              }}
+              disabled={testMutation.isPending}
+            >
+              Trigger test
+            </Button>
+          ) : null}
         </div>
       </div>
     </section>

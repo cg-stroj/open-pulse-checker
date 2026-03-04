@@ -251,7 +251,7 @@ Most specific matching scope wins.
 ### Core features
 
 - Severity route rules (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO`)
-- Channel toggles (current channel: webhook)
+- Channel toggles per severity/escalation step (WEBHOOK, EMAIL, TELEGRAM, SLACK, DISCORD, TEAMS)
 - Cooldown and dedup windows integrated in dispatch path
 - Ordered escalation-step metadata (`stepOrder`, `afterSeconds`, `minSeverity`)
 
@@ -261,6 +261,26 @@ Most specific matching scope wins.
 - `notification_route_rules`
 - `notification_escalation_steps`
 - dispatch metadata extensions in `dispatched_alerts`
+
+### Channel setup + troubleshooting
+
+Configuration prefixes:
+- `openpulse.alerting.webhook.*`
+- `openpulse.alerting.email.*`
+- `openpulse.alerting.telegram.*`
+- `openpulse.alerting.slack.*`
+- `openpulse.alerting.discord.*`
+- `openpulse.alerting.teams.*`
+
+Test trigger endpoint:
+- `POST /api/v1/admin/notification-policies/{id}/test`
+
+Troubleshooting checklist:
+- Verify channel config is enabled and URL/token/chat/email target is set.
+- Confirm channel is selected in route/escalation rules for target severity.
+- Check retries/DLQ counters (`openpulse.alerts.failed`, `openpulse.alerts.dlq`) in metrics.
+- Inspect DLQ entries and replay with `POST /api/v1/admin/dlq/{id}/replay`.
+- Secrets are redacted in errors and DLQ payload/failure reason fields by default.
 
 ## Status pages
 

@@ -1,9 +1,11 @@
 package io.openpulsechecker.api.admin;
 
+import io.openpulsechecker.notificationpolicy.NotificationChannel;
 import io.openpulsechecker.notificationpolicy.NotificationPolicyScopeType;
 import io.openpulsechecker.notificationpolicy.NotificationSeverity;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public record NotificationPolicyResponse(
@@ -18,6 +20,6 @@ public record NotificationPolicyResponse(
         Instant createdAt,
         Instant updatedAt
 ) {
-    public record RouteResponse(NotificationSeverity severity, boolean webhookEnabled) {}
-    public record EscalationStepResponse(int stepOrder, int afterSeconds, NotificationSeverity minSeverity, boolean webhookEnabled) {}
+    public record RouteResponse(NotificationSeverity severity, Set<NotificationChannel> channels) {}
+    public record EscalationStepResponse(int stepOrder, int afterSeconds, NotificationSeverity minSeverity, Set<NotificationChannel> channels) {}
 }
