@@ -24,6 +24,28 @@ async function mockApi(
   let brandCustomHeader: string | null = null
   let brandCustomFooter: string | null = null
 
+  const requiredMetricNames = [
+    'openpulse.scheduler.lock.acquire.success',
+    'openpulse.scheduler.lock.acquire.fail',
+    'openpulse.scheduler.lock.acquire.steal',
+    'openpulse.scheduler.lock.renew.fail',
+    'openpulse.scheduler.execution.skip.lock',
+    'openpulse.scheduler.execution.skip.local_inflight',
+    'openpulse.alerts.dlq.backlog',
+    'openpulse.alerts.dlq.oldest.age.seconds',
+    'openpulse.alerts.dispatch.attempts',
+    'openpulse.alerts.dispatch.latency',
+    'openpulse.alerts.delivery.delay',
+  ]
+
+  await page.route('**/actuator/metrics', async (route) => {
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ names: requiredMetricNames }),
+    })
+  })
+
   await page.route('**/actuator/metrics/**', async (route) => {
     const url = new URL(route.request().url())
     const metricName = decodeURIComponent(url.pathname.split('/actuator/metrics/')[1] ?? '')
