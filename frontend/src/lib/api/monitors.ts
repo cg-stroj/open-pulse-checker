@@ -67,3 +67,11 @@ export function useRunMonitorCheckMutation() {
     },
   })
 }
+
+export function useDeleteMonitorMutation() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/monitors/${id}`)
+    },
+  })
+}

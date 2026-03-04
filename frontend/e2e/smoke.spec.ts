@@ -11,6 +11,7 @@ interface SetupMockState {
 interface SetupMockOptions {
   forceExpiredToken?: boolean
   forceConflictOnCreate?: boolean
+  forceDeleteConflict?: boolean
 }
 
 async function mockApi(
@@ -23,6 +24,23 @@ async function mockApi(
   let brandLogoUrl: string | null = null
   let brandCustomHeader: string | null = null
   let brandCustomFooter: string | null = null
+  let monitors = [
+    {
+      id: 'm1',
+      name: 'API Gateway',
+      type: 'HTTP',
+      targetUrl: 'https://example.com/health',
+      enabled: true,
+      intervalSec: 60,
+      timeoutMs: 1200,
+      lastCheckAt: new Date().toISOString(),
+      lastCheckStatus: 'UP',
+      lastStatusCode: 200,
+      lastLatencyMs: 48,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ]
 
   const requiredMetricNames = [
     'openpulse.scheduler.lock.acquire.success',
@@ -138,47 +156,20 @@ async function mockApi(
     }
 
     if (pathname.endsWith('/monitors') && method === 'GET') {
-      return json([
-        {
-          id: 'm1',
-          name: 'API Gateway',
-          type: 'HTTP',
-          targetUrl: 'https://example.com/health',
-          enabled: true,
-          intervalSec: 60,
-          timeoutMs: 1200,
-          lastCheckAt: new Date().toISOString(),
-          lastCheckStatus: 'UP',
-          lastStatusCode: 200,
-          lastLatencyMs: 48,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ])
+      return json(monitors)
     }
 
     if (/\/api\/v1\/monitors\/[^/]+$/.test(pathname) && method === 'GET') {
-      return json({
-        id: 'm1',
-        name: 'API Gateway',
-        type: 'HTTP',
-        targetUrl: 'https://example.com/health',
-        enabled: true,
-        intervalSec: 60,
-        timeoutMs: 1200,
-        lastCheckAt: new Date().toISOString(),
-        lastCheckStatus: 'UP',
-        lastStatusCode: 200,
-        lastLatencyMs: 48,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
+      const id = pathname.split('/').pop() || ''
+      const found = monitors.find((monitor) => monitor.id === id)
+      if (!found) return json({ error: 'Monitor not found' }, 404)
+      return json(found)
     }
 
     if (pathname.endsWith('/monitors') && method === 'POST') {
       const payload = JSON.parse(route.request().postData() || '{}')
-      return json({
-        id: 'm-new',
+      const created = {
+        id: `m-${Date.now()}`,
         ...payload,
         lastCheckAt: null,
         lastCheckStatus: null,
@@ -186,40 +177,37 @@ async function mockApi(
         lastLatencyMs: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      }, 201)
+      }
+      monitors = [created, ...monitors]
+      return json(created, 201)
     }
 
     if (/\/api\/v1\/monitors\/[^/]+$/.test(pathname) && method === 'PUT') {
       const payload = JSON.parse(route.request().postData() || '{}')
-      return json({
-        id: pathname.split('/').pop(),
+      const id = pathname.split('/').pop() || ''
+      const current = monitors.find((monitor) => monitor.id === id)
+      const updated = {
+        id,
         ...payload,
-        lastCheckAt: new Date().toISOString(),
-        lastCheckStatus: 'UP',
-        lastStatusCode: 200,
-        lastLatencyMs: 45,
-        createdAt: new Date().toISOString(),
+        lastCheckAt: current?.lastCheckAt ?? new Date().toISOString(),
+        lastCheckStatus: current?.lastCheckStatus ?? 'UP',
+        lastStatusCode: current?.lastStatusCode ?? 200,
+        lastLatencyMs: current?.lastLatencyMs ?? 45,
+        createdAt: current?.createdAt ?? new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      })
+      }
+      monitors = monitors.map((monitor) => (monitor.id === id ? updated : monitor))
+      return json(updated)
     }
 
     if (/\/api\/v1\/monitors\/[^/]+\/enabled$/.test(pathname) && method === 'PATCH') {
       const payload = JSON.parse(route.request().postData() || '{}')
-      return json({
-        id: pathname.split('/')[4],
-        name: 'API Gateway',
-        type: 'HTTP',
-        targetUrl: 'https://example.com/health',
-        enabled: payload.enabled,
-        intervalSec: 60,
-        timeoutMs: 1200,
-        lastCheckAt: new Date().toISOString(),
-        lastCheckStatus: 'UP',
-        lastStatusCode: 200,
-        lastLatencyMs: 48,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
+      const id = pathname.split('/')[4]
+      const current = monitors.find((monitor) => monitor.id === id)
+      if (!current) return json({ error: 'Monitor not found' }, 404)
+      const updated = { ...current, enabled: payload.enabled, updatedAt: new Date().toISOString() }
+      monitors = monitors.map((monitor) => (monitor.id === id ? updated : monitor))
+      return json(updated)
     }
 
     if (/\/api\/v1\/monitors\/[^/]+\/run-check$/.test(pathname) && method === 'POST') {
@@ -232,6 +220,15 @@ async function mockApi(
         checkedAt: new Date().toISOString(),
         error: null,
       })
+    }
+
+    if (/\/api\/v1\/monitors\/[^/]+$/.test(pathname) && method === 'DELETE') {
+      const id = pathname.split('/').pop() || ''
+      if (options.forceDeleteConflict) {
+        return json({ error: 'Monitor deletion blocked: historical references exist (checkResults=1, incidents=1).' }, 409)
+      }
+      monitors = monitors.filter((monitor) => monitor.id !== id)
+      return route.fulfill({ status: 204 })
     }
 
     if (pathname.endsWith('/admin/incidents') && method === 'GET') {
@@ -445,4 +442,19 @@ test('setup wizard surfaces duplicate setup attempt conflict', async ({ page }) 
   await page.getByRole('button', { name: 'Complete setup' }).click()
 
   await expect(page.getByText('Setup is already completed and locked. Please sign in with an existing admin account.')).toBeVisible()
+})
+
+test('monitors smoke: delete action success + blocked feedback', async ({ page }) => {
+  await seedAuthSession(page)
+  await page.goto('/monitors')
+
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('button', { name: 'Delete monitor' }).click()
+  await expect(page.getByText('Monitor deleted. Status page bindings were detached automatically.')).toBeVisible()
+
+  await mockApi(page, { setupRequired: false, setupLocked: true, setupToken: null }, { forceDeleteConflict: true })
+  await page.goto('/monitors')
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('button', { name: 'Delete monitor' }).click()
+  await expect(page.getByText('Monitor deletion blocked: historical references exist')).toBeVisible()
 })

@@ -143,6 +143,23 @@ Behavior:
 - `paged=true` returns metadata: `items`, `page`, `size`, `total`, `totalPages`, `hasNext`, `hasPrevious`.
 - Guardrails: negative page coerced to `0`; invalid/non-positive size defaults to `25`; max size `200`.
 
+## Monitor deletion operations (Ticket #112)
+
+Endpoint:
+- `DELETE /api/v1/monitors/{id}` (`ADMIN` only)
+
+Deterministic delete policy:
+- Status page bindings are removed automatically by DB cascade.
+- Monitor deletion is blocked (`409 Conflict`) if monitor has any rows in `check_results` or `incidents`.
+- API error message includes blocking counters (`checkResults`, `incidents`) for operator triage.
+- Each successful delete writes `MONITOR_DELETE` audit event.
+
+Recovery and rollback notes:
+- Deletion is destructive for monitor configuration and status-page binding links.
+- Historical check/incident rows are intentionally preserved by refusing deletion while they exist.
+- If a monitor was deleted by mistake, recreate monitor with same target/config and reattach to status pages.
+- For incident timeline continuity, prefer disabling monitors instead of deleting when history exists.
+
 ## Incident manual lifecycle operations (Ticket #42)
 
 Admin endpoints:

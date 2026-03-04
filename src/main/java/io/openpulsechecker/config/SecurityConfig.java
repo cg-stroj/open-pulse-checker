@@ -50,6 +50,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/admin/**", "/api/v2/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/monitors").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/monitors/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/monitors/*").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/monitors/*/enabled").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/monitors/*/run-check").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/status-pages/**").hasRole("ADMIN")

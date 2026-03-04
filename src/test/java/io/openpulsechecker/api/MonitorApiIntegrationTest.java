@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -16,11 +17,23 @@ import io.openpulsechecker.auth.AppUserEntity;
 import io.openpulsechecker.auth.AppUserRepository;
 import io.openpulsechecker.auth.UserRoleEntity;
 import io.openpulsechecker.auth.UserRoleRepository;
+import io.openpulsechecker.audit.AuditEventRepository;
+import io.openpulsechecker.domain.CheckStatus;
+import io.openpulsechecker.domain.IncidentState;
+import io.openpulsechecker.persistence.CheckResultEntity;
+import io.openpulsechecker.persistence.CheckResultRepository;
+import io.openpulsechecker.persistence.IncidentEntity;
+import io.openpulsechecker.persistence.IncidentRepository;
+import io.openpulsechecker.persistence.MonitorEntity;
+import io.openpulsechecker.persistence.MonitorRepository;
+import io.openpulsechecker.persistence.StatusPageEntity;
+import io.openpulsechecker.persistence.StatusPageMonitorEntity;
+import io.openpulsechecker.persistence.StatusPageMonitorRepository;
+import io.openpulsechecker.persistence.StatusPageRepository;
 import io.openpulsechecker.service.HttpCheckClient;
 import io.openpulsechecker.service.HttpCheckOutcome;
 import java.time.Instant;
-import io.openpulsechecker.persistence.MonitorEntity;
-import io.openpulsechecker.persistence.MonitorRepository;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +62,11 @@ class MonitorApiIntegrationTest extends H2TestDatabaseSupport {
     @Autowired private UserRoleRepository userRoleRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private MonitorRepository monitorRepository;
+    @Autowired private CheckResultRepository checkResultRepository;
+    @Autowired private IncidentRepository incidentRepository;
+    @Autowired private StatusPageRepository statusPageRepository;
+    @Autowired private StatusPageMonitorRepository statusPageMonitorRepository;
+    @Autowired private AuditEventRepository auditEventRepository;
 
     @BeforeEach
     void ensureViewerUser() {
@@ -240,4 +258,86 @@ class MonitorApiIntegrationTest extends H2TestDatabaseSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.size").value(25));
     }
+
+    @Test
+    void deleteMonitorAsAdminSucceedsAndWritesAudit() throws Exception {
+        MonitorEntity monitor = new MonitorEntity();
+        monitor.setName("Delete me");
+        monitor.setType(io.openpulsechecker.domain.MonitorType.HTTP);
+        monitor.setTargetUrl("https://example.com/delete");
+        monitor.setIntervalSec(60);
+        monitor.setEnabled(true);
+        monitor.setTimeoutMs(1000);
+        MonitorEntity savedMonitor = monitorRepository.save(monitor);
+
+        StatusPageEntity statusPage = new StatusPageEntity();
+        statusPage.setName("Ops");
+        statusPage.setSlug("ops-delete");
+        statusPage.setPublic(true);
+        StatusPageEntity savedPage = statusPageRepository.save(statusPage);
+
+        StatusPageMonitorEntity binding = new StatusPageMonitorEntity();
+        binding.setStatusPageId(savedPage.getId());
+        binding.setMonitorId(savedMonitor.getId());
+        binding.setDisplayOrder(0);
+        statusPageMonitorRepository.save(binding);
+
+        mockMvc.perform(delete("/api/v1/monitors/" + savedMonitor.getId())
+                        .with(httpBasic("admin", "admin-change-me")))
+                .andExpect(status().isNoContent());
+
+        org.junit.jupiter.api.Assertions.assertFalse(monitorRepository.existsById(savedMonitor.getId()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, statusPageMonitorRepository.countByMonitorId(savedMonitor.getId()));
+        org.junit.jupiter.api.Assertions.assertEquals("MONITOR_DELETE", auditEventRepository.findTopByOrderByOccurredAtDesc().getAction());
+    }
+
+    @Test
+    void deleteMonitorForbiddenForViewer() throws Exception {
+        mockMvc.perform(delete("/api/v1/monitors/00000000-0000-0000-0000-000000000001")
+                        .with(httpBasic("viewer", "viewer-change-me")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteMonitorReturnsNotFoundForUnknownId() throws Exception {
+        mockMvc.perform(delete("/api/v1/monitors/" + UUID.randomUUID())
+                        .with(httpBasic("admin", "admin-change-me")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString("Monitor not found")));
+    }
+
+    @Test
+    void deleteMonitorBlockedWhenHistoryExists() throws Exception {
+        MonitorEntity monitor = new MonitorEntity();
+        monitor.setName("Has history");
+        monitor.setType(io.openpulsechecker.domain.MonitorType.HTTP);
+        monitor.setTargetUrl("https://example.com/history");
+        monitor.setIntervalSec(60);
+        monitor.setEnabled(true);
+        monitor.setTimeoutMs(1000);
+        MonitorEntity savedMonitor = monitorRepository.save(monitor);
+
+        CheckResultEntity checkResult = new CheckResultEntity();
+        checkResult.setMonitorId(savedMonitor.getId());
+        checkResult.setStatus(CheckStatus.DOWN);
+        checkResult.setStatusCode(500);
+        checkResult.setLatencyMs(33L);
+        checkResult.setCheckedAt(Instant.now());
+        checkResultRepository.save(checkResult);
+
+        IncidentEntity incident = new IncidentEntity();
+        incident.setMonitorId(savedMonitor.getId());
+        incident.setState(IncidentState.OPEN);
+        incident.setOpenedAt(Instant.now());
+        incident.setReason("Down");
+        incidentRepository.save(incident);
+
+        mockMvc.perform(delete("/api/v1/monitors/" + savedMonitor.getId())
+                        .with(httpBasic("admin", "admin-change-me")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString("Monitor deletion blocked")));
+
+        org.junit.jupiter.api.Assertions.assertTrue(monitorRepository.existsById(savedMonitor.getId()));
+    }
 }
+

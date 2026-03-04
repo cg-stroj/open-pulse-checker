@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 public interface CheckResultRepository extends JpaRepository<CheckResultEntity, UUID> {
     Optional<CheckResultEntity> findTopByMonitorIdOrderByCheckedAtDesc(UUID monitorId);
 
+    long countByMonitorId(UUID monitorId);
+
     @Query("""
             select c from CheckResultEntity c
             where c.monitorId in :monitorIds

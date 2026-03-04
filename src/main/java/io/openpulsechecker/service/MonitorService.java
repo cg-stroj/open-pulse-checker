@@ -7,8 +7,10 @@ import io.openpulsechecker.audit.AuditService;
 import io.openpulsechecker.domain.MonitorType;
 import io.openpulsechecker.persistence.CheckResultEntity;
 import io.openpulsechecker.persistence.CheckResultRepository;
+import io.openpulsechecker.persistence.IncidentRepository;
 import io.openpulsechecker.persistence.MonitorEntity;
 import io.openpulsechecker.persistence.MonitorRepository;
+import io.openpulsechecker.persistence.StatusPageMonitorRepository;
 import jakarta.persistence.criteria.Predicate;
 import java.net.URI;
 import java.util.HashMap;
@@ -27,13 +29,19 @@ public class MonitorService {
 
     private final MonitorRepository monitorRepository;
     private final CheckResultRepository checkResultRepository;
+    private final IncidentRepository incidentRepository;
+    private final StatusPageMonitorRepository statusPageMonitorRepository;
     private final AuditService auditService;
 
     public MonitorService(MonitorRepository monitorRepository,
                           CheckResultRepository checkResultRepository,
+                          IncidentRepository incidentRepository,
+                          StatusPageMonitorRepository statusPageMonitorRepository,
                           AuditService auditService) {
         this.monitorRepository = monitorRepository;
         this.checkResultRepository = checkResultRepository;
+        this.incidentRepository = incidentRepository;
+        this.statusPageMonitorRepository = statusPageMonitorRepository;
         this.auditService = auditService;
     }
 
@@ -141,6 +149,29 @@ public class MonitorService {
         auditService.log("MONITOR_UPDATE_ENABLED", "monitor:" + saved.getId(), "SUCCESS", "enabled=" + enabled);
         CheckResultEntity lastCheck = checkResultRepository.findTopByMonitorIdOrderByCheckedAtDesc(id).orElse(null);
         return toResponse(saved, lastCheck);
+    }
+
+    @Transactional
+    public void delete(UUID id) {
+        MonitorEntity entity = getEntity(id);
+
+        long statusPageBindings = statusPageMonitorRepository.countByMonitorId(id);
+        long checkHistoryCount = checkResultRepository.countByMonitorId(id);
+        long incidentHistoryCount = incidentRepository.countByMonitorId(id);
+
+        if (checkHistoryCount > 0 || incidentHistoryCount > 0) {
+            throw new MonitorDeletionBlockedException(
+                    "Monitor deletion blocked: historical references exist (checkResults=" + checkHistoryCount
+                            + ", incidents=" + incidentHistoryCount
+                            + "). Remove related history first or archive the monitor by disabling it.");
+        }
+
+        monitorRepository.delete(entity);
+        auditService.log(
+                "MONITOR_DELETE",
+                "monitor:" + entity.getId(),
+                "SUCCESS",
+                "name=" + entity.getName() + ", statusPageBindingsDetached=" + statusPageBindings);
     }
 
     private void validateTargetUrl(String rawUrl, MonitorType type) {

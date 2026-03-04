@@ -74,8 +74,17 @@ All examples assume default base URL: `http://localhost:8080`.
 - `GET /api/v1/monitors`
 - `POST /api/v1/monitors`
 - `PUT /api/v1/monitors/{id}`
-- `POST /api/v1/monitors/{id}/toggle`
+- `PATCH /api/v1/monitors/{id}/enabled`
+- `DELETE /api/v1/monitors/{id}`
 - `POST /api/v1/monitors/{id}/run-check`
+
+Delete policy (Ticket #112):
+- `DELETE /api/v1/monitors/{id}` requires `ADMIN` role.
+- Status page bindings are detached automatically via FK cascade (`status_page_monitors.monitor_id -> monitors.id ON DELETE CASCADE`).
+- Deletion is explicitly blocked with `409 Conflict` when monitor history exists in `check_results` or `incidents`.
+- Conflict response is deterministic and actionable, for example:
+  - `Monitor deletion blocked: historical references exist (checkResults=3, incidents=1). Remove related history first or archive the monitor by disabling it.`
+- Successful deletions write an audit event with action `MONITOR_DELETE`.
 
 List APIs support optional query ergonomics:
 - `paged=true|false` (default `false` for compatibility)
@@ -334,7 +343,7 @@ Delivered frontend modules include:
 
 - **Admin auth/session UX** (`/login`, protected routes, 401/403 handling)
 - **Ops Dashboard** (`/dashboard`) for scheduler/alerting telemetry
-- **Monitors** (`/monitors`) for list/detail/create/edit/toggle/run-check
+- **Monitors** (`/monitors`) for list/detail/create/edit/toggle/run-check/delete with explicit impact confirmation
 - **Incidents Console** (`/incidents`) for lifecycle controls and annotations
 - **Maintenance Windows** (`/maintenance-windows`) CRUD and schedule configuration
 - **Notification Policies** (`/notification-policies`) scope/routing/escalation controls

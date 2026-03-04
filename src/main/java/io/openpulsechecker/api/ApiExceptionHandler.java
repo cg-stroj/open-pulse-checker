@@ -1,5 +1,6 @@
 package io.openpulsechecker.api;
 
+import io.openpulsechecker.service.MonitorDeletionBlockedException;
 import io.openpulsechecker.service.ResourceNotFoundException;
 import io.openpulsechecker.setup.SetupLockedException;
 import java.util.Map;
@@ -24,6 +25,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(SetupLockedException.class)
     public ResponseEntity<Map<String, String>> handleSetupLocked(SetupLockedException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(MonitorDeletionBlockedException.class)
+    public ResponseEntity<Map<String, String>> handleMonitorDeletionBlocked(MonitorDeletionBlockedException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", ex.getMessage()));
     }
 

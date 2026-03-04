@@ -10,6 +10,7 @@ import { Field, SelectInput, TextInput } from '../components/ui/FormControls'
 import {
   getMonitorApiErrorMessage,
   useCreateMonitorMutation,
+  useDeleteMonitorMutation,
   useMonitorDetailQuery,
   useMonitorsQuery,
   useRunMonitorCheckMutation,
@@ -130,6 +131,7 @@ export function MonitorsPage() {
   const updateMonitorMutation = useUpdateMonitorMutation()
   const toggleMonitorMutation = useToggleMonitorMutation()
   const runCheckMutation = useRunMonitorCheckMutation()
+  const deleteMonitorMutation = useDeleteMonitorMutation()
 
   const [selectedMonitorId, setSelectedMonitorId] = useState<string | null>(null)
   const [mode, setMode] = useState<'create' | 'edit'>('create')
@@ -314,6 +316,29 @@ export function MonitorsPage() {
     }
   }
 
+  async function deleteMonitor(monitor: Monitor) {
+    const warning = [
+      `Delete monitor "${monitor.name}"?`,
+      '',
+      'This permanently removes monitor configuration.',
+      'Status page bindings will be detached automatically.',
+      'Deletion is blocked when incident/check history exists.',
+    ].join('\n')
+    if (!window.confirm(warning)) return
+
+    try {
+      await deleteMonitorMutation.mutateAsync(monitor.id)
+      notify.success('Monitor deleted. Status page bindings were detached automatically.')
+      await refresh()
+      setSelectedMonitorId(null)
+      setMode('create')
+      setForm(initFormState())
+      setErrors({})
+    } catch (error) {
+      notify.error(getMonitorApiErrorMessage(error, 'Failed to delete monitor.'))
+    }
+  }
+
   if (monitorsQuery.isLoading) {
     return <LoadingState title="Loading monitors" description="Fetching monitor inventory and check state." />
   }
@@ -445,6 +470,14 @@ export function MonitorsPage() {
                   onClick={() => runCheck(selectedMonitor)}
                 >
                   Run check now
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="text-red-300 hover:bg-red-950/40"
+                  disabled={deleteMonitorMutation.isPending}
+                  onClick={() => deleteMonitor(selectedMonitor)}
+                >
+                  Delete monitor
                 </Button>
               </div>
             </>
