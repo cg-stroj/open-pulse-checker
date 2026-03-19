@@ -94,7 +94,9 @@ class MonitorApiIntegrationTest extends H2TestDatabaseSupport {
                   "targetUrl": "https://example.com",
                   "intervalSec": 60,
                   "enabled": true,
-                  "timeoutMs": 1200
+                  "timeoutMs": 1200,
+                  "httpMethod": "POST",
+                  "expectedResponseKeyword": "ready"
                 }
                 """;
 
@@ -105,6 +107,8 @@ class MonitorApiIntegrationTest extends H2TestDatabaseSupport {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.type").value("HTTP"))
+                .andExpect(jsonPath("$.httpMethod").value("POST"))
+                .andExpect(jsonPath("$.expectedResponseKeyword").value("ready"))
                 .andReturn();
 
         String response = created.getResponse().getContentAsString();
@@ -155,14 +159,37 @@ class MonitorApiIntegrationTest extends H2TestDatabaseSupport {
                                   "targetUrl": "https://example.com/health",
                                   "intervalSec": 120,
                                   "enabled": false,
-                                  "timeoutMs": 5000
+                                  "timeoutMs": 5000,
+                                  "httpMethod": "PATCH",
+                                  "expectedResponseKeyword": "healthy"
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id))
                 .andExpect(jsonPath("$.name").value("Docs API"))
                 .andExpect(jsonPath("$.enabled").value(false))
-                .andExpect(jsonPath("$.intervalSec").value(120));
+                .andExpect(jsonPath("$.intervalSec").value(120))
+                .andExpect(jsonPath("$.httpMethod").value("PATCH"))
+                .andExpect(jsonPath("$.expectedResponseKeyword").value("healthy"));
+    }
+
+    @Test
+    void createAcceptsPingType() throws Exception {
+        mockMvc.perform(post("/api/v1/monitors")
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Legacy Ping",
+                                  "type": "PING",
+                                  "targetUrl": "example.com",
+                                  "intervalSec": 60,
+                                  "enabled": true,
+                                  "timeoutMs": 1200
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.type").value("PING"));
     }
 
     @Test

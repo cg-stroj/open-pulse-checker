@@ -4,6 +4,7 @@ import io.openpulsechecker.api.CreateMonitorRequest;
 import io.openpulsechecker.api.MonitorResponse;
 import io.openpulsechecker.api.UpdateMonitorRequest;
 import io.openpulsechecker.audit.AuditService;
+import io.openpulsechecker.domain.HttpMethod;
 import io.openpulsechecker.domain.MonitorType;
 import io.openpulsechecker.persistence.CheckResultEntity;
 import io.openpulsechecker.persistence.CheckResultRepository;
@@ -47,6 +48,7 @@ public class MonitorService {
 
     @Transactional
     public MonitorResponse create(CreateMonitorRequest request) {
+        validateWriteType(request.type());
         validateTargetUrl(request.targetUrl(), request.type());
 
         MonitorEntity entity = new MonitorEntity();
@@ -56,14 +58,7 @@ public class MonitorService {
         entity.setIntervalSec(request.intervalSec());
         entity.setEnabled(request.enabled() == null || request.enabled());
         entity.setTimeoutMs(request.timeoutMs());
-        
-        if (request.type() == MonitorType.HTTP) {
-            entity.setHttpMethod(request.httpMethod() != null ? request.httpMethod() : io.openpulsechecker.domain.HttpMethod.GET);
-            entity.setExpectedResponseKeyword(request.expectedResponseKeyword() != null ? request.expectedResponseKeyword().trim() : null);
-        } else {
-            entity.setHttpMethod(null);
-            entity.setExpectedResponseKeyword(null);
-        }
+        applyTypeSettings(entity, request.type(), request.httpMethod(), request.expectedResponseKeyword());
 
         MonitorEntity saved = monitorRepository.save(entity);
         auditService.log("MONITOR_CREATE", "monitor:" + saved.getId(), "SUCCESS", saved.getName());
@@ -117,6 +112,7 @@ public class MonitorService {
 
     @Transactional
     public MonitorResponse update(UUID id, UpdateMonitorRequest request) {
+        validateWriteType(request.type());
         validateTargetUrl(request.targetUrl(), request.type());
 
         MonitorEntity entity = getEntity(id);
@@ -126,14 +122,7 @@ public class MonitorService {
         entity.setIntervalSec(request.intervalSec());
         entity.setEnabled(request.enabled());
         entity.setTimeoutMs(request.timeoutMs());
-
-        if (request.type() == MonitorType.HTTP) {
-            entity.setHttpMethod(request.httpMethod() != null ? request.httpMethod() : io.openpulsechecker.domain.HttpMethod.GET);
-            entity.setExpectedResponseKeyword(request.expectedResponseKeyword() != null ? request.expectedResponseKeyword().trim() : null);
-        } else {
-            entity.setHttpMethod(null);
-            entity.setExpectedResponseKeyword(null);
-        }
+        applyTypeSettings(entity, request.type(), request.httpMethod(), request.expectedResponseKeyword());
 
         MonitorEntity saved = monitorRepository.save(entity);
         auditService.log("MONITOR_UPDATE", "monitor:" + saved.getId(), "SUCCESS", saved.getName());
@@ -174,6 +163,12 @@ public class MonitorService {
                 "name=" + entity.getName() + ", statusPageBindingsDetached=" + statusPageBindings);
     }
 
+    private void validateWriteType(MonitorType type) {
+        if (type != MonitorType.HTTP && type != MonitorType.TCP && type != MonitorType.PING) {
+            throw new IllegalArgumentException("Unsupported monitor type for create/update: " + type);
+        }
+    }
+
     private void validateTargetUrl(String rawUrl, MonitorType type) {
         if (type == MonitorType.TCP) {
             try {
@@ -186,14 +181,41 @@ public class MonitorService {
             return;
         }
 
+        if (type == MonitorType.PING) {
+            String pingTarget = rawUrl.trim();
+            if (pingTarget.isBlank() || pingTarget.contains(" ")) {
+                throw new IllegalArgumentException("PING target must be a hostname or IP address.");
+            }
+            return;
+        }
+
         URI uri = URI.create(rawUrl);
         String scheme = uri.getScheme();
         if (scheme == null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
-            throw new IllegalArgumentException("Only HTTP/HTTPS target URLs are allowed for HTTP/PING monitors.");
+            throw new IllegalArgumentException("Only HTTP/HTTPS target URLs are allowed for HTTP monitors.");
         }
         if (uri.getHost() == null || uri.getHost().isBlank()) {
             throw new IllegalArgumentException("Target URL host is required.");
         }
+    }
+
+    private void applyTypeSettings(MonitorEntity entity, MonitorType type, HttpMethod httpMethod, String expectedKeyword) {
+        if (type == MonitorType.HTTP) {
+            entity.setHttpMethod(httpMethod != null ? httpMethod : HttpMethod.GET);
+            entity.setExpectedResponseKeyword(normalizeKeyword(expectedKeyword));
+            return;
+        }
+
+        entity.setHttpMethod(null);
+        entity.setExpectedResponseKeyword(null);
+    }
+
+    private String normalizeKeyword(String expectedKeyword) {
+        if (expectedKeyword == null) {
+            return null;
+        }
+        String trimmed = expectedKeyword.trim();
+        return trimmed.isBlank() ? null : trimmed;
     }
 
     private List<MonitorResponse> mapResponses(List<MonitorEntity> monitors) {
@@ -206,11 +228,6 @@ public class MonitorService {
         }
 
         return monitors.stream().map(monitor -> toResponse(monitor, latestByMonitor.get(monitor.getId()))).toList();
-    }
-
-    private MonitorResponse toResponseWithLatestCheck(MonitorEntity entity) {
-        CheckResultEntity latest = checkResultRepository.findTopByMonitorIdOrderByCheckedAtDesc(entity.getId()).orElse(null);
-        return toResponse(entity, latest);
     }
 
     private String normalizeQuery(String q) {

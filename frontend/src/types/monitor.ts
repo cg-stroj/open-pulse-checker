@@ -7,11 +7,11 @@ export interface Monitor {
   name: string
   type: MonitorType
   targetUrl: string
-  httpMethod?: HttpMethod | null
-  expectedResponseKeyword?: string | null
   intervalSec: number
   enabled: boolean
   timeoutMs: number
+  httpMethod: HttpMethod | null
+  expectedResponseKeyword: string | null
   lastCheckAt: string | null
   lastCheckStatus: CheckStatus | null
   lastStatusCode: number | null
@@ -24,22 +24,22 @@ export interface CreateMonitorPayload {
   name: string
   type: MonitorType
   targetUrl: string
-  httpMethod?: HttpMethod
-  expectedResponseKeyword?: string
   intervalSec: number
   enabled?: boolean
   timeoutMs: number
+  httpMethod?: HttpMethod
+  expectedResponseKeyword?: string
 }
 
 export interface UpdateMonitorPayload {
   name: string
   type: MonitorType
   targetUrl: string
-  httpMethod?: HttpMethod
-  expectedResponseKeyword?: string
   intervalSec: number
   enabled: boolean
   timeoutMs: number
+  httpMethod?: HttpMethod
+  expectedResponseKeyword?: string
 }
 
 export interface CheckResult {

@@ -25,11 +25,11 @@ interface FormState {
   name: string
   type: MonitorType
   targetUrl: string
-  httpMethod: HttpMethod
-  expectedResponseKeyword: string
   intervalSec: string
   timeoutMs: string
   enabled: boolean
+  httpMethod: HttpMethod
+  expectedResponseKeyword: string
 }
 
 interface FormErrors {
@@ -44,11 +44,11 @@ function initFormState(): FormState {
     name: '',
     type: 'HTTP',
     targetUrl: '',
-    httpMethod: 'GET',
-    expectedResponseKeyword: '',
     intervalSec: '60',
     timeoutMs: '1200',
     enabled: true,
+    httpMethod: 'GET',
+    expectedResponseKeyword: '',
   }
 }
 
@@ -57,11 +57,11 @@ function fromMonitor(monitor: Monitor): FormState {
     name: monitor.name,
     type: monitor.type ?? 'HTTP',
     targetUrl: monitor.targetUrl,
-    httpMethod: monitor.httpMethod ?? 'GET',
-    expectedResponseKeyword: monitor.expectedResponseKeyword ?? '',
     intervalSec: String(monitor.intervalSec),
     timeoutMs: String(monitor.timeoutMs),
     enabled: monitor.enabled,
+    httpMethod: monitor.httpMethod ?? 'GET',
+    expectedResponseKeyword: monitor.expectedResponseKeyword ?? '',
   }
 }
 
@@ -103,6 +103,16 @@ function validate(form: FormState): FormErrors {
       }
     } catch {
       errors.targetUrl = 'Provide a valid URL.'
+    }
+  } else if (form.type === 'TCP') {
+    const tcpTarget = form.targetUrl.trim()
+    if (!/^[^:\s]+:\d+$/.test(tcpTarget)) {
+      errors.targetUrl = 'TCP target must be host:port (for example localhost:5432).'
+    }
+  } else {
+    const pingTarget = form.targetUrl.trim()
+    if (/\s/.test(pingTarget) || pingTarget.includes(':')) {
+      errors.targetUrl = 'PING target must be a hostname or IP address.'
     }
   }
 
@@ -180,12 +190,12 @@ export function MonitorsPage() {
 
   const isHttpMonitor = form.type === 'HTTP'
   const targetLabel = isHttpMonitor ? 'Target URL' : 'Target'
-  const targetPlaceholder = isHttpMonitor
-    ? 'https://example.com/health'
-    : form.type === 'TCP'
-      ? 'example.com:443'
-      : 'example.com'
-  const targetHint = form.type === 'TCP' ? 'Format hint: host:port' : null
+  const targetPlaceholder = isHttpMonitor ? 'https://example.com/health' : form.type === 'TCP' ? 'example.com:443' : 'example.com'
+  const targetHint = form.type === 'TCP'
+    ? 'Format hint: host:port'
+    : form.type === 'PING'
+      ? 'Format hint: hostname or IP (without port)'
+      : null
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: ['monitors'] })
@@ -196,14 +206,6 @@ export function MonitorsPage() {
 
   function onChange<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
-  }
-
-  function onTypeChange(type: MonitorType) {
-    setForm((prev) => ({
-      ...prev,
-      type,
-      httpMethod: prev.httpMethod || 'GET',
-    }))
   }
 
   function selectForCreate() {
@@ -221,41 +223,35 @@ export function MonitorsPage() {
   }
 
   function toCreatePayload(current: FormState): CreateMonitorPayload {
-    const payload: CreateMonitorPayload = {
+    const isHttp = current.type === 'HTTP'
+    return {
       name: current.name.trim(),
       type: current.type ?? 'HTTP',
       targetUrl: current.targetUrl.trim(),
       intervalSec: Number(current.intervalSec),
       enabled: current.enabled,
       timeoutMs: Number(current.timeoutMs),
+      httpMethod: isHttp ? current.httpMethod : undefined,
+      expectedResponseKeyword: isHttp && current.expectedResponseKeyword.trim()
+        ? current.expectedResponseKeyword.trim()
+        : undefined,
     }
-
-    if (payload.type === 'HTTP') {
-      payload.httpMethod = current.httpMethod ?? 'GET'
-      const keyword = current.expectedResponseKeyword.trim()
-      if (keyword) payload.expectedResponseKeyword = keyword
-    }
-
-    return payload
   }
 
   function toUpdatePayload(current: FormState): UpdateMonitorPayload {
-    const payload: UpdateMonitorPayload = {
+    const isHttp = current.type === 'HTTP'
+    return {
       name: current.name.trim(),
       type: current.type ?? 'HTTP',
       targetUrl: current.targetUrl.trim(),
       intervalSec: Number(current.intervalSec),
       enabled: current.enabled,
       timeoutMs: Number(current.timeoutMs),
+      httpMethod: isHttp ? current.httpMethod : undefined,
+      expectedResponseKeyword: isHttp && current.expectedResponseKeyword.trim()
+        ? current.expectedResponseKeyword.trim()
+        : undefined,
     }
-
-    if (payload.type === 'HTTP') {
-      payload.httpMethod = current.httpMethod ?? 'GET'
-      const keyword = current.expectedResponseKeyword.trim()
-      if (keyword) payload.expectedResponseKeyword = keyword
-    }
-
-    return payload
   }
 
   async function submit() {
@@ -500,7 +496,7 @@ export function MonitorsPage() {
               </Field>
 
               <Field label="Type">
-                <SelectInput value={form.type} onChange={(event) => onTypeChange(event.target.value as MonitorType)}>
+                <SelectInput value={form.type} onChange={(event) => onChange('type', event.target.value as MonitorType)}>
                   <option value="HTTP">HTTP</option>
                   <option value="TCP">TCP</option>
                   <option value="PING">PING</option>

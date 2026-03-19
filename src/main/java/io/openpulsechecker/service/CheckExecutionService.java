@@ -88,9 +88,10 @@ public class CheckExecutionService {
             case HTTP -> httpCheckClient.execute(
                     monitor.getTargetUrl(),
                     monitor.getTimeoutMs(),
-                    monitor.getHttpMethod() != null ? monitor.getHttpMethod() : io.openpulsechecker.domain.HttpMethod.GET,
+                    monitor.getHttpMethod(),
                     monitor.getExpectedResponseKeyword());
             case TCP -> networkCheckClient.executeTcp(monitor.getTargetUrl(), monitor.getTimeoutMs());
+            // Legacy compatibility for existing rows created before minimal redesign.
             case PING -> networkCheckClient.executePing(monitor.getTargetUrl(), monitor.getTimeoutMs());
         };
     }
