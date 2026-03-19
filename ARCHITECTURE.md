@@ -1,46 +1,72 @@
 # Architecture
 
-## Phase 2.0 additions
-- `status pages`: `status_pages` + `status_page_monitors` persistence model with public/private visibility
-- `api`: public unauthenticated status page read endpoint and ADMIN-only management endpoints
-- `service`: status aggregation for monitor summaries + bounded incident timeline + derived overall page health state (`OPERATIONAL`/`DEGRADED`/`OUTAGE`)
-- `security`: public access limited to `GET /api/v1/public/status-pages/{slug}` when page is marked public
+This file describes runtime architecture and module responsibilities.
+For API/feature behavior details, use `DOCUMENTATION.md`.
 
-## Phase 1.4 additions
-- `schedulerlock`: explicit acquire outcomes for lock contention/stale recovery visibility
-- `service`: idempotent scheduler dispatch revalidation before check execution
-- `actuator`: `/actuator/info` build metadata for release visibility
-- `config`: `application-prod.yml` profile for PostgreSQL + safe Flyway defaults
-- `operations`: release template/changelog/runbook documentation for deploy safety
+## Source-of-truth boundaries
 
-## Phase 1.2 modules
-- `api`: monitor + health endpoints
-- `service`: monitor lifecycle, check execution, scheduler dispatch
-- `schedulerlock`: DB-backed distributed lease lock (`scheduler_locks`)
-- `alerting`: alert dispatch with retry/idempotency dedupe; minimal release runtime routing is email-only (multi-channel components remain parked for future phases)
-- `auth`: DB user/role persistence + DB `UserDetailsService` + bootstrap admin initializer
-- `audit`: persistent auth and write-action audit trail
-- `persistence`: monitor/check/incident JPA model + Flyway migrations
+- Runtime/module architecture: **this file**
+- API contracts and behavioral rules: `DOCUMENTATION.md`
+- Operational execution/rollback procedures: `OPERATIONS_RUNBOOK.md`
+- Delivery timeline and planned direction: `ROADMAP.md`
 
-## Key runtime flow
-1. Scheduler finds due monitors
-2. For each monitor, attempts DB lease lock (`monitor-check:{id}`)
-3. If acquired, check executes and result persists
-4. Incident transition emits alert event
-5. Email notifier sends with deterministic idempotency key + bounded retries (minimal release scope)
-6. Successful deliveries are deduped via `dispatched_alerts`
-7. Writes/auth events emit persistent audit records
+## Current architecture snapshot
 
-## Delivered Phase 1.2 schema additions
-- `scheduler_locks`
-- `dispatched_alerts`
-- `app_users`
-- `user_roles`
-- `audit_events`
+### Runtime components
+- **Backend API/service (Spring Boot)**
+  - monitor lifecycle, check execution, incidents, policies, setup/auth hardening, audit
+- **Frontend (React + TypeScript + Vite)**
+  - admin/operator UX and public status-page preview
+- **Database (PostgreSQL)**
+  - monitors/check results/incidents, identity/roles, policies, maintenance windows, audit
 
-## Phase 1.3 additions
+### Core modules
+- `api`: REST controllers (monitor, incident, setup, status page, maintenance, policies, audit)
+- `service`: domain logic (monitor validation, check scheduling, incident transitions, retention)
+- `schedulerlock`: DB-backed lease lock for multi-instance safe scheduling
+- `alerting`: notifier dispatch + dedup/cooldown + DLQ support; **minimal release routing is email-only**
+- `notificationpolicy`: policy model + scope precedence + active-channel enforcement
+- `auth` + `setup` + `apikey`: user auth, first-admin bootstrap, service key auth
+- `audit`: persistent auth and privileged-write event trail
+- `persistence`: JPA entities + Flyway migrations
 
-- **Rate Limiting:** `RateLimitFilter` + in-memory token bucket keyed by principal/API key/IP.
-- **Service Accounts:** `service_api_keys` table + `ApiKeyAuthenticationFilter` integrated into Spring Security roles.
-- **Notifier DLQ:** exhausted webhook retries are persisted to `alert_dead_letters` and replayed through admin API.
-- **Observability:** Spring Boot Actuator health/readiness/metrics plus counters for checks, alerts, auth failures, and rate-limit hits.
+## Key runtime flows
+
+### Monitor check flow
+1. Scheduler finds due monitors.
+2. Node attempts distributed lock (`monitor-check:{id}`).
+3. On lock acquisition, check executes and result persists.
+4. Incident transitions are evaluated.
+5. Alert dispatch resolves policy and sends via active channels (email-only in current release).
+6. Dispatch history is deduped/audited.
+
+### Setup/auth hardening flow
+1. Setup is exposed via `/api/v1/setup/*` until first admin is created.
+2. Optional bootstrap protection gate can restrict setup endpoints (header secret and/or CIDR allowlist).
+3. Successful first-admin creation hard-locks setup.
+4. Sensitive setup/auth routes are rate-limited.
+
+## Data model highlights
+
+- `monitors` supports `HTTP`, `TCP`, `PING` with shared fields plus HTTP-specific method/keyword fields.
+- `check_results` stores per-check status, latency, status code, error context.
+- `incidents` tracks lifecycle (`OPEN`, `ACKNOWLEDGED`, `RESOLVED`).
+- `notification_*` tables store scope, route rules, escalation metadata (active channel scope currently locked to `EMAIL`).
+- `scheduler_locks` enables safe multi-node scheduling and retention cleanup locking.
+- `audit_events` records auth and privileged write actions.
+
+## Retention model
+
+- Fixed `30` day retention window (implemented in `MonitorHistoryRetentionService`).
+- Purges:
+  - old `check_results` by `checked_at`
+  - old **resolved** incidents by `resolved_at`
+- Open incidents are intentionally retained.
+
+## CI gate architecture reality
+
+GitHub Actions (`.github/workflows/ci.yml`) executes:
+- backend verify: `mvn clean verify`
+- frontend gates: `npm run lint`, `npm run build`, `npm run test:e2e:smoke`
+
+If pipeline scope changes, update this section and `README.md` + `OPERATIONS_RUNBOOK.md` together.

@@ -101,36 +101,38 @@ The product features are delivered; remaining work is mainly **deployment/operat
 - Expand multi-node operational tooling and alert tuning on observability signals.
 - Continue release hardening for repeatable upgrades and lower-risk rollbacks.
 
-## Strategic audit addendum (2026-03-04)
+## Strategic addendum (updated reality)
 
-Repository audit verdict: strong backend/security governance baseline, but not yet at "profi+ above Uptime Kuma" due to ecosystem breadth and release-gate gaps.
+Current factual posture:
+- Monitor coverage is `HTTP`, `TCP`, `PING`.
+- Notification scope for minimal release is intentionally **EMAIL-only**.
+- CI runs backend verify plus frontend lint/build/e2e smoke in GitHub Actions.
+- Setup/auth hardening and sensitive-route rate limiting are active.
+- Fixed 30-day history retention is implemented and scheduled.
 
-### Key findings (from code + test audit)
-- Monitor coverage is still limited to `HTTP`, `TCP`, `PING` (no DNS/SSL/DB/container monitors yet).
-- Minimal-release routing is intentionally locked to `EMAIL` only (non-email channels are parked for later rollout).
-- CI currently validates backend build/test, but does not run frontend quality gates (`lint`, `build`, `e2e smoke`) in GitHub Actions.
-- Local backend test reproducibility is fragile in env-mismatch scenarios (PostgreSQL auth mismatch surfaced during audit run).
-- Product differentiation opportunities remain open: SLO/SLA reporting, richer status-page communications, stronger enterprise auth/tenant capabilities.
+### Next priorities
 
-### Prioritized execution plan
+#### P0 (operational depth)
+1. Add more monitor types (DNS, SSL expiry, JSON assertion) with current validation discipline.
+2. Expand status page communication features (component grouping, maintenance messaging, branding depth).
+3. Improve policy diagnostics UX (effective-policy explainability, dispatch troubleshooting clarity).
 
-#### P0 (Immediate hardening)
-1. Extend CI with frontend gates (`npm run lint`, `npm run build`, `npm run test:e2e:smoke`).
-2. Stabilize test infra for reproducible local+CI runs (profile alignment and/or Testcontainers-backed integration testing).
-3. Deliver first multi-channel alerting pack (Email, Telegram, Slack, Discord, Teams).
+#### P1 (notification expansion beyond minimal scope)
+1. Gradually activate non-email channels behind explicit rollout gates.
+2. Add channel-level conformance tests and runbook playbooks per channel.
+3. Keep policy backward compatibility during channel activation.
 
-#### P1 (Product parity+)
-1. Add monitor types: DNS, SSL certificate expiry, HTTP JSON assertion.
-2. Status Page v2: component groups, scheduled maintenance banners, branding controls.
-3. Alerting UX improvements: route test/dry-run, clearer dedup/escalation diagnostics.
+#### P2 (enterprise hardening)
+1. OIDC/SSO and optional MFA.
+2. SLO/SLA and reliability analytics.
+3. Multi-node operations package (backup/restore drills, chaos-smoke routines).
 
-#### P2 (Enterprise+ differentiation)
-1. Auth hardening: OIDC/SSO + optional TOTP 2FA.
-2. Reliability analytics: SLO/SLA dashboards and error-budget tracking.
-3. HA and operations package: multi-node deploy profile, automated backup/restore drill, chaos/smoke playbooks.
+### Drift-control note
 
-### Quality objective for next milestone
-Target next release to move from "solid foundation" to "operator-grade":
-- deterministic CI gates for BE+FE,
-- broader monitor/notification coverage,
-- measurable reliability/compliance capabilities.
+If CI scope, monitor model, retention policy, notification scope, or dashboard layout changes,
+update in the same change set:
+- `README.md`
+- `DOCUMENTATION.md`
+- `ARCHITECTURE.md`
+- `OPERATIONS_RUNBOOK.md`
+- `ROADMAP.md`

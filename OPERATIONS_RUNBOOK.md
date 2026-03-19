@@ -1,5 +1,8 @@
 # Operations Runbook
 
+This file is the operations/procedure source of truth.
+Behavioral/API semantics live in `DOCUMENTATION.md`; architecture boundaries in `ARCHITECTURE.md`.
+
 ## QA-first delivery protocol (MANDATORY)
 
 For this project, all work follows this gate:
@@ -110,6 +113,18 @@ Setup bootstrap protection recovery/rollback:
    - `OPENPULSE_SECURITY_SETUP_BOOTSTRAP_PROTECTION_ENABLED=false`
 4. Complete first-admin onboarding immediately.
 5. Re-enable protection with corrected values and rotate setup secret.
+
+## Sensitive route rate-limit coverage (current)
+
+Current rate-limited routes:
+- `GET /api/v1/admin/auth/login`
+- `GET /api/v1/setup/status`
+- `POST /api/v1/setup/first-admin`
+- `POST /api/v1/monitors`
+- `PATCH /api/v1/monitors/{id}/enabled`
+- `POST /api/v1/monitors/{id}/run-check`
+
+If this list changes in code (`RateLimitFilter`), update this section and `DOCUMENTATION.md` together.
 
 ## CORS configuration operations (Task #122)
 

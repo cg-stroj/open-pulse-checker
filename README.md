@@ -1,13 +1,39 @@
 # Open Pulse Checker
 
-Open Pulse Checker is a security-first, self-hosted monitoring platform for uptime checks, incident tracking, alert routing, and public status communication.
+Open Pulse Checker is a self-hosted uptime and incident platform.
 
-Current monitor types:
-- `HTTP` (custom HTTP method supported; defaults to `GET`)
-- `TCP` (`host:port` target)
-- `PING` (hostname or IPv4 target, for example `example.com` or `1.1.1.1`)
+This README is the **operator-facing entry point**. For implementation details, use the source-of-truth links in [Documentation map](#documentation-map-and-source-of-truth).
 
-HTTP monitors optionally support `expectedResponseKeyword` response-body matching.
+## Current release reality (minimal scope)
+
+- Monitor types: `HTTP`, `TCP`, `PING`
+- Interval policy for create/update: **60/120/180/240/300 seconds** (1–5 minutes)
+- Notifications: **email-only active channel** in runtime and policy validation
+- Retention: fixed **30-day** purge window for check results and resolved incidents
+- Dashboard layout: **top live monitor grid + bottom incident timeline**
+- Auth/setup hardening: setup bootstrap guard, setup lock after first admin, route-level rate limiting on sensitive endpoints
+- CI gates (GitHub Actions): backend `mvn clean verify`, frontend `lint`, `build`, Playwright `test:e2e:smoke`
+
+## Monitor model (quick reference)
+
+Shared fields:
+- `name`
+- `type` (`HTTP` | `TCP` | `PING`)
+- `targetUrl`
+- `intervalSec` (must be 60/120/180/240/300)
+- `timeoutMs`
+- `enabled`
+- `emailAlertOnDown`
+- `emailAlertOnRecovery`
+
+HTTP-only fields:
+- `httpMethod` (defaults to `GET` when omitted)
+- `expectedResponseKeyword` (optional response-body substring)
+
+Target rules:
+- `HTTP`: must be `http://` or `https://` URL with host
+- `TCP`: must be `host:port`
+- `PING`: hostname or IPv4 target (URL scheme/path/port rejected)
 
 ## Quickstart (Docker-only)
 
@@ -92,62 +118,28 @@ Windows (PowerShell):
 - `./scripts/run.ps1 -Command reset`
 - `./scripts/run.ps1 -Command reset -PurgeEnv`
 
-## Troubleshooting basics
+## Development/CI reality
 
-- If scripts fail with Docker checks, start Docker Desktop/Engine and retry.
-- If startup fails due to ports, update `.env` (`OPENPULSE_PORT`, `OPENPULSE_FRONTEND_PORT`) and rerun `start`.
-- If UI sign-in reports network/API issue, set `OPENPULSE_FRONTEND_API_BASE_URL=http://localhost:8888/api/v1` in `.env` and rebuild via `./scripts/run.sh restart`.
-- Use `status` for service state and `logs` for diagnostics.
-- Use `reset` when state is inconsistent and you need a clean Docker data reset.
+Local backend tests use deterministic H2 (PostgreSQL compatibility mode); Docker/Testcontainers are not required for `mvn test`/`mvn clean verify`.
 
-## Smoke checklist
+GitHub Actions CI (`.github/workflows/ci.yml`) currently runs:
+1. `mvn --batch-mode --no-transfer-progress clean verify`
+2. `npm ci` (frontend)
+3. `npx playwright install --with-deps chromium`
+4. `npm run lint`
+5. `npm run build`
+6. `npm run test:e2e:smoke`
 
-- Docker lifecycle smoke: [`docs/docker-smoke-matrix.md`](./docs/docker-smoke-matrix.md)
-- Onboarding QA regression matrix (Ticket #84): [`docs/onboarding-qa-matrix-report-2026-03-01.md`](./docs/onboarding-qa-matrix-report-2026-03-01.md)
+## Documentation map and source of truth
 
-## Development workflow (local QA-first)
+- **Product/operator quickstart (entry point):** `README.md` (this file)
+- **System behavior and module boundaries:** `ARCHITECTURE.md`
+- **API/feature behavior details:** `DOCUMENTATION.md`
+- **Operational procedures and rollback:** `OPERATIONS_RUNBOOK.md`
+- **Delivered timeline and next phases:** `ROADMAP.md`
 
-For active development in this private server setup:
-- work on feature branches,
-- run local tests + health checks,
-- BOS validates manually in UI,
-- only then push to GitHub.
-
-CI parity gates on push/PR (GitHub Actions):
-- Backend: `mvn clean verify` (H2 in-memory test database, PostgreSQL compatibility mode)
-- Frontend: `npm run lint`
-- Frontend: `npm run build`
-- Frontend: `npm run test:e2e:smoke`
-
-## Backend test execution (deterministic)
-
-Backend tests use only an in-memory H2 database in PostgreSQL compatibility mode. No Docker/Testcontainers dependency is required for test execution.
-
-Prerequisites:
-- Java 21
-- Maven 3.9+
-
-Run tests:
-```bash
-mvn test
-```
-
-Run full backend verification:
-```bash
-mvn clean verify
-```
-
-Runbook reference: [`OPERATIONS_RUNBOOK.md`](./OPERATIONS_RUNBOOK.md)
-
-## Documentation index
-
-- Product + setup overview: **this README**
-- Delivery timeline: [`ROADMAP.md`](./ROADMAP.md)
-- Technical documentation: [`DOCUMENTATION.md`](./DOCUMENTATION.md)
-- Architecture snapshot: [`ARCHITECTURE.md`](./ARCHITECTURE.md)
-- Operations and rollback procedures: [`OPERATIONS_RUNBOOK.md`](./OPERATIONS_RUNBOOK.md)
-- Status Page v2 runbook: [`docs/status-page-v2-runbook.md`](./docs/status-page-v2-runbook.md)
-- Release gate checklist: [`docs/v2.1-release-readiness-checklist.md`](./docs/v2.1-release-readiness-checklist.md)
+Drift rule:
+- If behavior-level statements change in this README, update `DOCUMENTATION.md` and `ARCHITECTURE.md` in the same PR.
 
 ## License
 
