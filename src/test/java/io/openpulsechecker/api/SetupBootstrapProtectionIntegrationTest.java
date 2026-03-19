@@ -15,6 +15,7 @@ import io.openpulsechecker.setup.SetupStateRepository;
 import io.openpulsechecker.setup.SetupTokenRepository;
 import io.openpulsechecker.support.H2TestDatabaseSupport;
 import java.time.Instant;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,18 @@ class SetupBootstrapProtectionIntegrationTest extends H2TestDatabaseSupport {
         setupTokenRepository.deleteAll();
         auditEventRepository.deleteAll();
 
+        SetupStateEntity state = setupStateRepository.findById(1).orElseGet(() -> {
+            SetupStateEntity created = new SetupStateEntity();
+            created.setId(1);
+            return created;
+        });
+        state.setSetupLocked(false);
+        state.setUpdatedAt(Instant.now());
+        setupStateRepository.save(state);
+    }
+
+    @AfterEach
+    void cleanupState() {
         SetupStateEntity state = setupStateRepository.findById(1).orElseGet(() -> {
             SetupStateEntity created = new SetupStateEntity();
             created.setId(1);

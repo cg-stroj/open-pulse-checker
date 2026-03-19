@@ -34,6 +34,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import io.openpulsechecker.setup.SetupStateEntity;
+import io.openpulsechecker.setup.SetupStateRepository;
 import io.openpulsechecker.support.H2TestDatabaseSupport;
 
 @SpringBootTest
@@ -54,11 +56,35 @@ class AdminIncidentApiIntegrationTest extends H2TestDatabaseSupport {
     @Autowired private IncidentRepository incidentRepository;
     @Autowired private IncidentManualEventRepository incidentManualEventRepository;
     @Autowired private AuditEventRepository auditEventRepository;
+    @Autowired private SetupStateRepository setupStateRepository;
 
     private UUID incidentId;
 
     @BeforeEach
     void setup() {
+        SetupStateEntity state = setupStateRepository.findById(1).orElseGet(() -> {
+            SetupStateEntity created = new SetupStateEntity();
+            created.setId(1);
+            return created;
+        });
+        state.setSetupLocked(false);
+        state.setUpdatedAt(Instant.now());
+        setupStateRepository.save(state);
+
+        if (!appUserRepository.existsByUsername("admin")) {
+            AppUserEntity admin = new AppUserEntity();
+            admin.setUsername("admin");
+            admin.setPasswordHash(passwordEncoder.encode("admin-change-me"));
+            admin.setEnabled(true);
+            AppUserEntity savedAdmin = appUserRepository.save(admin);
+
+            UserRoleEntity adminRole = new UserRoleEntity();
+            adminRole.setUserId(savedAdmin.getId());
+            adminRole.setRoleName("ADMIN");
+            adminRole.setCreatedAt(Instant.now());
+            userRoleRepository.save(adminRole);
+        }
+
         if (!appUserRepository.existsByUsername("viewer")) {
             AppUserEntity viewer = new AppUserEntity();
             viewer.setUsername("viewer");
