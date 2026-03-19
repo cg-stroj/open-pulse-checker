@@ -16,6 +16,8 @@ public record MonitorResponse(
         int timeoutMs,
         HttpMethod httpMethod,
         String expectedResponseKeyword,
+        boolean emailAlertOnDown,
+        boolean emailAlertOnRecovery,
         Instant lastCheckAt,
         CheckStatus lastCheckStatus,
         Integer lastStatusCode,

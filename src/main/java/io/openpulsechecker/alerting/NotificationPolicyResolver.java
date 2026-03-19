@@ -6,6 +6,7 @@ import io.openpulsechecker.notificationpolicy.NotificationPolicyRepository;
 import io.openpulsechecker.notificationpolicy.NotificationPolicyScopeType;
 import io.openpulsechecker.notificationpolicy.NotificationPolicyService;
 import io.openpulsechecker.notificationpolicy.NotificationSeverity;
+import io.openpulsechecker.persistence.MonitorRepository;
 import io.openpulsechecker.persistence.StatusPageMonitorRepository;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -21,13 +22,16 @@ public class NotificationPolicyResolver {
     private final NotificationPolicyRepository policyRepository;
     private final NotificationPolicyService policyService;
     private final StatusPageMonitorRepository statusPageMonitorRepository;
+    private final MonitorRepository monitorRepository;
 
     public NotificationPolicyResolver(NotificationPolicyRepository policyRepository,
                                       NotificationPolicyService policyService,
-                                      StatusPageMonitorRepository statusPageMonitorRepository) {
+                                      StatusPageMonitorRepository statusPageMonitorRepository,
+                                      MonitorRepository monitorRepository) {
         this.policyRepository = policyRepository;
         this.policyService = policyService;
         this.statusPageMonitorRepository = statusPageMonitorRepository;
+        this.monitorRepository = monitorRepository;
     }
 
     @Transactional(readOnly = true)
@@ -55,7 +59,20 @@ public class NotificationPolicyResolver {
             }
         }
 
+        if (channels.contains(NotificationChannel.EMAIL) && !isEmailAllowedForEvent(event)) {
+            channels.remove(NotificationChannel.EMAIL);
+        }
+
         return Optional.of(new NotificationDispatchPlan(policy.id(), severity, policy.cooldownSeconds(), policy.dedupSeconds(), channels, policy));
+    }
+
+    private boolean isEmailAllowedForEvent(AlertEvent event) {
+        return monitorRepository.findById(event.monitorId())
+                .map(monitor -> switch (event.type()) {
+                    case INCIDENT_OPENED -> monitor.isEmailAlertOnDown();
+                    case INCIDENT_RESOLVED -> monitor.isEmailAlertOnRecovery();
+                })
+                .orElse(true);
     }
 
     private Optional<NotificationPolicyModel> resolvePolicyForMonitor(UUID monitorId) {

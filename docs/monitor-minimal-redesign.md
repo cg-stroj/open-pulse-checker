@@ -13,9 +13,11 @@ Common fields:
 - `name`
 - `type`
 - `targetUrl`
-- `intervalSec`
+- `intervalSec` (allowed values: `60`, `120`, `180`, `240`, `300` => 1–5 minutes)
 - `enabled`
 - `timeoutMs`
+- `emailAlertOnDown` (per-monitor email on incident opened)
+- `emailAlertOnRecovery` (per-monitor email on incident resolved)
 
 HTTP-only fields:
 - `httpMethod` (defaults to `GET` when omitted)
@@ -26,6 +28,8 @@ HTTP-only fields:
 - `HTTP` monitors execute using configured `httpMethod` and optional keyword matching.
 - `TCP` monitors execute socket connectivity checks against `host:port`.
 - `PING` monitors execute ICMP-like reachability checks via the network check client.
+- Scheduler due-check evaluation uses each monitor's selected interval (1–5 minute options).
+- Email dispatch keeps monitor-level preferences: down and recovery can be enabled/disabled independently.
 
 ## Product boundary kept intentionally minimal
 

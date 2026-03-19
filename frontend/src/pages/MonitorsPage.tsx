@@ -18,57 +18,10 @@ import {
   useUpdateMonitorMutation,
 } from '../lib/api/monitors'
 import type { CheckStatus, CreateMonitorPayload, HttpMethod, Monitor, MonitorType, UpdateMonitorPayload } from '../types/monitor'
+import { fromMonitor, hasErrors, initFormState, type FormErrors, type FormState, validateMonitorForm } from './monitorForm'
 
 type SortMode = 'name' | 'newest' | 'oldest'
 
-interface FormState {
-  name: string
-  type: MonitorType
-  targetUrl: string
-  intervalSec: string
-  timeoutMs: string
-  enabled: boolean
-  httpMethod: HttpMethod
-  expectedResponseKeyword: string
-}
-
-interface FormErrors {
-  name?: string
-  targetUrl?: string
-  intervalSec?: string
-  timeoutMs?: string
-}
-
-function initFormState(): FormState {
-  return {
-    name: '',
-    type: 'HTTP',
-    targetUrl: '',
-    intervalSec: '60',
-    timeoutMs: '1200',
-    enabled: true,
-    httpMethod: 'GET',
-    expectedResponseKeyword: '',
-  }
-}
-
-function fromMonitor(monitor: Monitor): FormState {
-  return {
-    name: monitor.name,
-    type: monitor.type ?? 'HTTP',
-    targetUrl: monitor.targetUrl,
-    intervalSec: String(monitor.intervalSec),
-    timeoutMs: String(monitor.timeoutMs),
-    enabled: monitor.enabled,
-    httpMethod: monitor.httpMethod ?? 'GET',
-    expectedResponseKeyword: monitor.expectedResponseKeyword ?? '',
-  }
-}
-
-function parseInteger(value: string) {
-  if (!/^\d+$/.test(value.trim())) return null
-  return Number(value)
-}
 
 function statusTone(status: CheckStatus | null): 'success' | 'critical' | 'warning' | 'neutral' {
   if (status === 'UP') return 'success'
@@ -86,52 +39,6 @@ function formatDateTime(value: string | null) {
   return new Date(value).toLocaleString()
 }
 
-function validate(form: FormState): FormErrors {
-  const errors: FormErrors = {}
-
-  if (!form.name.trim()) {
-    errors.name = 'Name is required.'
-  }
-
-  if (!form.targetUrl.trim()) {
-    errors.targetUrl = form.type === 'HTTP' ? 'Target URL is required.' : 'Target is required.'
-  } else if (form.type === 'HTTP') {
-    try {
-      const parsed = new URL(form.targetUrl.trim())
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-        errors.targetUrl = 'URL must use http or https.'
-      }
-    } catch {
-      errors.targetUrl = 'Provide a valid URL.'
-    }
-  } else if (form.type === 'TCP') {
-    const tcpTarget = form.targetUrl.trim()
-    if (!/^[^:\s]+:\d+$/.test(tcpTarget)) {
-      errors.targetUrl = 'TCP target must be host:port (for example localhost:5432).'
-    }
-  } else {
-    const pingTarget = form.targetUrl.trim()
-    if (/\s/.test(pingTarget) || pingTarget.includes(':')) {
-      errors.targetUrl = 'PING target must be a hostname or IP address.'
-    }
-  }
-
-  const interval = parseInteger(form.intervalSec)
-  if (interval === null || interval < 10 || interval > 86400) {
-    errors.intervalSec = 'Interval must be an integer between 10 and 86400 seconds.'
-  }
-
-  const timeout = parseInteger(form.timeoutMs)
-  if (timeout === null || timeout < 100 || timeout > 120000) {
-    errors.timeoutMs = 'Timeout must be an integer between 100 and 120000 ms.'
-  }
-
-  return errors
-}
-
-function hasErrors(errors: FormErrors) {
-  return Object.values(errors).some(Boolean)
-}
 
 export function MonitorsPage() {
   const queryClient = useQueryClient()
@@ -235,6 +142,8 @@ export function MonitorsPage() {
       expectedResponseKeyword: isHttp && current.expectedResponseKeyword.trim()
         ? current.expectedResponseKeyword.trim()
         : undefined,
+      emailAlertOnDown: current.emailAlertOnDown,
+      emailAlertOnRecovery: current.emailAlertOnRecovery,
     }
   }
 
@@ -251,11 +160,13 @@ export function MonitorsPage() {
       expectedResponseKeyword: isHttp && current.expectedResponseKeyword.trim()
         ? current.expectedResponseKeyword.trim()
         : undefined,
+      emailAlertOnDown: current.emailAlertOnDown,
+      emailAlertOnRecovery: current.emailAlertOnRecovery,
     }
   }
 
   async function submit() {
-    const foundErrors = validate(form)
+    const foundErrors = validateMonitorForm(form)
     setErrors(foundErrors)
 
     if (hasErrors(foundErrors)) {
@@ -436,7 +347,7 @@ export function MonitorsPage() {
               <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-md bg-bg-panel p-3">
                   <p className="text-xs text-text-muted">Interval</p>
-                  <p className="text-sm text-text-secondary">{selectedMonitor.intervalSec}s</p>
+                  <p className="text-sm text-text-secondary">{Math.round(selectedMonitor.intervalSec / 60)} min ({selectedMonitor.intervalSec}s)</p>
                 </div>
                 <div className="rounded-md bg-bg-panel p-3">
                   <p className="text-xs text-text-muted">Timeout</p>
@@ -541,9 +452,29 @@ export function MonitorsPage() {
                 </SelectInput>
               </Field>
 
-              <Field label="Interval (seconds)">
-                <TextInput inputMode="numeric" value={form.intervalSec} onChange={(event) => onChange('intervalSec', event.target.value)} />
+              <Field label="Interval">
+                <SelectInput value={form.intervalSec} onChange={(event) => onChange('intervalSec', event.target.value)}>
+                  <option value="60">1 minute (60s)</option>
+                  <option value="120">2 minutes (120s)</option>
+                  <option value="180">3 minutes (180s)</option>
+                  <option value="240">4 minutes (240s)</option>
+                  <option value="300">5 minutes (300s)</option>
+                </SelectInput>
                 {errors.intervalSec ? <p className="text-xs text-red-300">{errors.intervalSec}</p> : null}
+              </Field>
+
+              <Field label="Email alert on incident down">
+                <SelectInput value={form.emailAlertOnDown ? 'ON' : 'OFF'} onChange={(event) => onChange('emailAlertOnDown', event.target.value === 'ON')}>
+                  <option value="ON">Enabled</option>
+                  <option value="OFF">Disabled</option>
+                </SelectInput>
+              </Field>
+
+              <Field label="Email alert on incident recovery">
+                <SelectInput value={form.emailAlertOnRecovery ? 'ON' : 'OFF'} onChange={(event) => onChange('emailAlertOnRecovery', event.target.value === 'ON')}>
+                  <option value="ON">Enabled</option>
+                  <option value="OFF">Disabled</option>
+                </SelectInput>
               </Field>
 
               <Field label="Timeout (ms)">

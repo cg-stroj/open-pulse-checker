@@ -1,6 +1,7 @@
 package io.openpulsechecker.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -53,6 +54,8 @@ class MonitorServiceTest {
                 true,
                 1000,
                 null,
+                null,
+                null,
                 null);
 
         MonitorResponse response = service.create(request);
@@ -98,14 +101,43 @@ class MonitorServiceTest {
                 "API",
                 MonitorType.HTTP,
                 "https://example.com/health",
-                30,
+                60,
                 true,
                 1500,
                 HttpMethod.PATCH,
-                "  ok  ");
+                "  ok  ",
+                true,
+                false);
 
         MonitorResponse response = service.create(request);
         assertEquals(HttpMethod.PATCH, response.httpMethod());
         assertEquals("ok", response.expectedResponseKeyword());
+        assertEquals(true, response.emailAlertOnDown());
+        assertEquals(false, response.emailAlertOnRecovery());
+    }
+
+    @Test
+    void createRejectsIntervalsOutsideAllowedMinuteSet() {
+        MonitorService service = new MonitorService(
+                monitorRepository,
+                checkResultRepository,
+                incidentRepository,
+                statusPageMonitorRepository,
+                auditService);
+
+        CreateMonitorRequest request = new CreateMonitorRequest(
+                "API",
+                MonitorType.HTTP,
+                "https://example.com/health",
+                90,
+                true,
+                1500,
+                HttpMethod.GET,
+                null,
+                true,
+                true);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.create(request));
+        assertEquals("Interval must be one of: 60, 120, 180, 240, 300 seconds (1-5 minutes).", ex.getMessage());
     }
 }

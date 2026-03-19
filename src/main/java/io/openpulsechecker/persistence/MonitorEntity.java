@@ -46,6 +46,12 @@ public class MonitorEntity {
     @Column(length = 255)
     private String expectedResponseKeyword;
 
+    @Column(nullable = false)
+    private boolean emailAlertOnDown = true;
+
+    @Column(nullable = false)
+    private boolean emailAlertOnRecovery = true;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -85,6 +91,10 @@ public class MonitorEntity {
     public void setHttpMethod(HttpMethod httpMethod) { this.httpMethod = httpMethod; }
     public String getExpectedResponseKeyword() { return expectedResponseKeyword; }
     public void setExpectedResponseKeyword(String expectedResponseKeyword) { this.expectedResponseKeyword = expectedResponseKeyword; }
+    public boolean isEmailAlertOnDown() { return emailAlertOnDown; }
+    public void setEmailAlertOnDown(boolean emailAlertOnDown) { this.emailAlertOnDown = emailAlertOnDown; }
+    public boolean isEmailAlertOnRecovery() { return emailAlertOnRecovery; }
+    public void setEmailAlertOnRecovery(boolean emailAlertOnRecovery) { this.emailAlertOnRecovery = emailAlertOnRecovery; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

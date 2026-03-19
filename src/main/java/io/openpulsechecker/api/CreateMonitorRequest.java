@@ -12,10 +12,13 @@ public record CreateMonitorRequest(
         @NotBlank @Size(max = 120) String name,
         @NotNull MonitorType type,
         @NotBlank @Size(max = 1024) String targetUrl,
-        @Min(10) @Max(86400) int intervalSec,
+        @Min(value = 60, message = "must be between 60 and 300 seconds")
+        @Max(value = 300, message = "must be between 60 and 300 seconds") int intervalSec,
         Boolean enabled,
         @Min(100) @Max(120000) int timeoutMs,
         HttpMethod httpMethod,
-        @Size(max = 255) String expectedResponseKeyword
+        @Size(max = 255) String expectedResponseKeyword,
+        Boolean emailAlertOnDown,
+        Boolean emailAlertOnRecovery
 ) {
 }

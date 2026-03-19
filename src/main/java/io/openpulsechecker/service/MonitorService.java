@@ -50,6 +50,7 @@ public class MonitorService {
     public MonitorResponse create(CreateMonitorRequest request) {
         validateWriteType(request.type());
         validateTargetUrl(request.targetUrl(), request.type());
+        validateIntervalSec(request.intervalSec());
 
         MonitorEntity entity = new MonitorEntity();
         entity.setName(request.name().trim());
@@ -58,6 +59,8 @@ public class MonitorService {
         entity.setIntervalSec(request.intervalSec());
         entity.setEnabled(request.enabled() == null || request.enabled());
         entity.setTimeoutMs(request.timeoutMs());
+        entity.setEmailAlertOnDown(request.emailAlertOnDown() == null || request.emailAlertOnDown());
+        entity.setEmailAlertOnRecovery(request.emailAlertOnRecovery() == null || request.emailAlertOnRecovery());
         applyTypeSettings(entity, request.type(), request.httpMethod(), request.expectedResponseKeyword());
 
         MonitorEntity saved = monitorRepository.save(entity);
@@ -114,6 +117,7 @@ public class MonitorService {
     public MonitorResponse update(UUID id, UpdateMonitorRequest request) {
         validateWriteType(request.type());
         validateTargetUrl(request.targetUrl(), request.type());
+        validateIntervalSec(request.intervalSec());
 
         MonitorEntity entity = getEntity(id);
         entity.setName(request.name().trim());
@@ -122,6 +126,8 @@ public class MonitorService {
         entity.setIntervalSec(request.intervalSec());
         entity.setEnabled(request.enabled());
         entity.setTimeoutMs(request.timeoutMs());
+        entity.setEmailAlertOnDown(request.emailAlertOnDown() == null || request.emailAlertOnDown());
+        entity.setEmailAlertOnRecovery(request.emailAlertOnRecovery() == null || request.emailAlertOnRecovery());
         applyTypeSettings(entity, request.type(), request.httpMethod(), request.expectedResponseKeyword());
 
         MonitorEntity saved = monitorRepository.save(entity);
@@ -166,6 +172,12 @@ public class MonitorService {
     private void validateWriteType(MonitorType type) {
         if (type != MonitorType.HTTP && type != MonitorType.TCP && type != MonitorType.PING) {
             throw new IllegalArgumentException("Unsupported monitor type for create/update: " + type);
+        }
+    }
+
+    private void validateIntervalSec(int intervalSec) {
+        if (intervalSec != 60 && intervalSec != 120 && intervalSec != 180 && intervalSec != 240 && intervalSec != 300) {
+            throw new IllegalArgumentException("Interval must be one of: 60, 120, 180, 240, 300 seconds (1-5 minutes).");
         }
     }
 
@@ -247,6 +259,8 @@ public class MonitorService {
                 entity.getTimeoutMs(),
                 entity.getHttpMethod(),
                 entity.getExpectedResponseKeyword(),
+                entity.isEmailAlertOnDown(),
+                entity.isEmailAlertOnRecovery(),
                 latestCheck != null ? latestCheck.getCheckedAt() : null,
                 latestCheck != null ? latestCheck.getStatus() : null,
                 latestCheck != null ? latestCheck.getStatusCode() : null,

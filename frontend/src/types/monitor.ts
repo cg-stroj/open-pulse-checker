@@ -12,6 +12,8 @@ export interface Monitor {
   timeoutMs: number
   httpMethod: HttpMethod | null
   expectedResponseKeyword: string | null
+  emailAlertOnDown: boolean
+  emailAlertOnRecovery: boolean
   lastCheckAt: string | null
   lastCheckStatus: CheckStatus | null
   lastStatusCode: number | null
@@ -29,6 +31,8 @@ export interface CreateMonitorPayload {
   timeoutMs: number
   httpMethod?: HttpMethod
   expectedResponseKeyword?: string
+  emailAlertOnDown?: boolean
+  emailAlertOnRecovery?: boolean
 }
 
 export interface UpdateMonitorPayload {
@@ -40,6 +44,8 @@ export interface UpdateMonitorPayload {
   timeoutMs: number
   httpMethod?: HttpMethod
   expectedResponseKeyword?: string
+  emailAlertOnDown?: boolean
+  emailAlertOnRecovery?: boolean
 }
 
 export interface CheckResult {

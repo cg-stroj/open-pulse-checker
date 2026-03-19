@@ -96,7 +96,9 @@ class MonitorApiIntegrationTest extends H2TestDatabaseSupport {
                   "enabled": true,
                   "timeoutMs": 1200,
                   "httpMethod": "POST",
-                  "expectedResponseKeyword": "ready"
+                  "expectedResponseKeyword": "ready",
+                  "emailAlertOnDown": true,
+                  "emailAlertOnRecovery": false
                 }
                 """;
 
@@ -109,6 +111,8 @@ class MonitorApiIntegrationTest extends H2TestDatabaseSupport {
                 .andExpect(jsonPath("$.type").value("HTTP"))
                 .andExpect(jsonPath("$.httpMethod").value("POST"))
                 .andExpect(jsonPath("$.expectedResponseKeyword").value("ready"))
+                .andExpect(jsonPath("$.emailAlertOnDown").value(true))
+                .andExpect(jsonPath("$.emailAlertOnRecovery").value(false))
                 .andReturn();
 
         String response = created.getResponse().getContentAsString();
@@ -161,7 +165,9 @@ class MonitorApiIntegrationTest extends H2TestDatabaseSupport {
                                   "enabled": false,
                                   "timeoutMs": 5000,
                                   "httpMethod": "PATCH",
-                                  "expectedResponseKeyword": "healthy"
+                                  "expectedResponseKeyword": "healthy",
+                                  "emailAlertOnDown": false,
+                                  "emailAlertOnRecovery": true
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -170,7 +176,9 @@ class MonitorApiIntegrationTest extends H2TestDatabaseSupport {
                 .andExpect(jsonPath("$.enabled").value(false))
                 .andExpect(jsonPath("$.intervalSec").value(120))
                 .andExpect(jsonPath("$.httpMethod").value("PATCH"))
-                .andExpect(jsonPath("$.expectedResponseKeyword").value("healthy"));
+                .andExpect(jsonPath("$.expectedResponseKeyword").value("healthy"))
+                .andExpect(jsonPath("$.emailAlertOnDown").value(false))
+                .andExpect(jsonPath("$.emailAlertOnRecovery").value(true));
     }
 
     @Test
@@ -190,6 +198,25 @@ class MonitorApiIntegrationTest extends H2TestDatabaseSupport {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.type").value("PING"));
+    }
+
+    @Test
+    void createRejectsInvalidIntervalValue() throws Exception {
+        mockMvc.perform(post("/api/v1/monitors")
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Bad interval",
+                                  "type": "HTTP",
+                                  "targetUrl": "https://example.com",
+                                  "intervalSec": 90,
+                                  "enabled": true,
+                                  "timeoutMs": 1200
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Interval must be one of: 60, 120, 180, 240, 300 seconds (1-5 minutes)."));
     }
 
     @Test
@@ -257,7 +284,7 @@ class MonitorApiIntegrationTest extends H2TestDatabaseSupport {
         beta.setName("Beta API");
         beta.setType(io.openpulsechecker.domain.MonitorType.HTTP);
         beta.setTargetUrl("https://example.com/b");
-        beta.setIntervalSec(30);
+        beta.setIntervalSec(120);
         beta.setEnabled(false);
         beta.setTimeoutMs(1000);
         monitorRepository.save(beta);
