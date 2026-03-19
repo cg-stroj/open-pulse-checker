@@ -33,10 +33,33 @@ async function mockApi(
       enabled: true,
       intervalSec: 60,
       timeoutMs: 1200,
+      httpMethod: 'GET',
+      expectedResponseKeyword: 'healthy',
+      emailAlertOnDown: true,
+      emailAlertOnRecovery: true,
+      lastCheckAt: new Date().toISOString(),
+      lastCheckStatus: 'DOWN',
+      lastStatusCode: 503,
+      lastLatencyMs: 248,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'm2',
+      name: 'Core TCP',
+      type: 'TCP',
+      targetUrl: 'db.internal:5432',
+      enabled: true,
+      intervalSec: 60,
+      timeoutMs: 1200,
+      httpMethod: null,
+      expectedResponseKeyword: null,
+      emailAlertOnDown: true,
+      emailAlertOnRecovery: true,
       lastCheckAt: new Date().toISOString(),
       lastCheckStatus: 'UP',
-      lastStatusCode: 200,
-      lastLatencyMs: 48,
+      lastStatusCode: null,
+      lastLatencyMs: 19,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
@@ -235,11 +258,21 @@ async function mockApi(
       return json([
         {
           id: 'inc-1',
+          monitorId: 'm1',
           monitorName: 'API Gateway',
-          reason: 'Synthetic smoke incident',
+          reason: 'HTTP 503 from gateway health endpoint',
           state: 'OPEN',
           openedAt: new Date().toISOString(),
           resolvedAt: null,
+        },
+        {
+          id: 'inc-2',
+          monitorId: 'm2',
+          monitorName: 'Core TCP',
+          reason: 'Recovered after short packet loss',
+          state: 'RESOLVED',
+          openedAt: new Date(Date.now() - 3_600_000).toISOString(),
+          resolvedAt: new Date(Date.now() - 3_540_000).toISOString(),
         },
       ])
     }
@@ -321,7 +354,9 @@ test('login gate smoke and navigation across major routes', async ({ page }) => 
   await page.getByLabel('Password').fill('admin-change-me')
   await page.getByRole('button', { name: 'Sign in' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Ops Observability Dashboard' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Operations Dashboard' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Live monitor grid' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Incident timeline' })).toBeVisible()
   await page.getByRole('link', { name: 'Monitors' }).click()
   await expect(page.getByRole('heading', { name: 'Monitors', exact: true })).toBeVisible()
 
@@ -339,6 +374,18 @@ test('login gate smoke and navigation across major routes', async ({ page }) => 
 
   await page.getByRole('link', { name: 'Audit Explorer' }).click()
   await expect(page.getByRole('heading', { name: 'Audit Explorer', exact: true })).toBeVisible()
+})
+
+test('dashboard triage smoke: identify DOWN monitor and inspect incident details', async ({ page }) => {
+  await seedAuthSession(page)
+  await page.goto('/dashboard')
+
+  const apiGatewayCard = page.locator('article', { hasText: 'API Gateway' })
+  await expect(apiGatewayCard.getByText('DOWN')).toBeVisible()
+
+  await page.getByRole('button', { name: /API Gateway OPEN/ }).click()
+  await expect(page.getByText('Incident ID: inc-1')).toBeVisible()
+  await expect(page.getByRole('definition').filter({ hasText: 'HTTP 503 from gateway health endpoint' })).toBeVisible()
 })
 
 test('key action flow smoke: create status page', async ({ page }) => {

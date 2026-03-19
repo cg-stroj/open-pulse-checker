@@ -1,75 +1,102 @@
 import { useMemo, useState } from 'react'
+import { EmptyState } from '../components/states/EmptyState'
 import { ErrorState } from '../components/states/ErrorState'
 import { LoadingState } from '../components/states/LoadingState'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Field, SelectInput } from '../components/ui/FormControls'
-import { describeObservabilityError, useOpsDashboardQuery } from '../lib/api/observability'
+import { type CheckStatus, type Monitor } from '../types/monitor'
+import { type AdminIncident, type IncidentState, useAdminIncidentsQuery } from '../lib/api/incidents'
+import { useMonitorsQuery } from '../lib/api/monitors'
 
-const defaultRefreshMs = 10_000
-const refreshOptionsMs = [5_000, 10_000, 30_000, 60_000]
-
-function formatPercent(value: number) {
-  return `${(value * 100).toFixed(1)}%`
+function monitorTone(status: CheckStatus | null, enabled: boolean): 'success' | 'critical' | 'warning' | 'neutral' {
+  if (!enabled) return 'neutral'
+  if (status === 'UP') return 'success'
+  if (status === 'DOWN') return 'critical'
+  if (status === 'UNKNOWN') return 'warning'
+  return 'neutral'
 }
 
-function formatSeconds(value: number) {
-  return `${value.toFixed(2)}s`
+function monitorLabel(status: CheckStatus | null, enabled: boolean) {
+  if (!enabled) return 'DISABLED'
+  return status ?? 'NO DATA'
 }
 
-function formatCount(value: number) {
-  return Intl.NumberFormat('en-US').format(Math.round(value))
+function incidentTone(state: IncidentState): 'critical' | 'warning' | 'success' {
+  if (state === 'OPEN') return 'critical'
+  if (state === 'ACKNOWLEDGED') return 'warning'
+  return 'success'
 }
 
-interface PanelProps {
-  title: string
-  badge: { text: string; tone: 'neutral' | 'success' | 'warning' | 'critical' }
-  lines: Array<{ label: string; value: string }>
+function formatDateTime(value: string | null) {
+  if (!value) return '—'
+  return new Date(value).toLocaleString()
 }
 
-function DashboardPanel({ title, badge, lines }: PanelProps) {
-  return (
-    <article className="rounded-lg border border-surface-border bg-bg-elevated p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="font-medium">{title}</h3>
-        <Badge tone={badge.tone}>{badge.text}</Badge>
-      </div>
-      <dl className="space-y-2">
-        {lines.map((line) => (
-          <div key={line.label} className="flex items-center justify-between gap-3 text-sm">
-            <dt className="text-text-secondary">{line.label}</dt>
-            <dd className="font-medium text-text-primary">{line.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </article>
-  )
+function formatTypeMetadata(monitor: Monitor) {
+  if (monitor.type !== 'HTTP') {
+    return monitor.type
+  }
+
+  const method = monitor.httpMethod ?? 'GET'
+  const keyword = monitor.expectedResponseKeyword ? ` · keyword: ${monitor.expectedResponseKeyword}` : ''
+  return `${monitor.type} · ${method}${keyword}`
 }
 
 export function DashboardPage() {
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
-  const [refreshMs, setRefreshMs] = useState(defaultRefreshMs)
+  const monitorsQuery = useMonitorsQuery()
+  const incidentsQuery = useAdminIncidentsQuery()
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
 
-  const dashboardQuery = useOpsDashboardQuery(refreshMs, autoRefreshEnabled)
+  const monitors = useMemo(() => monitorsQuery.data ?? [], [monitorsQuery.data])
+  const incidents = useMemo(() => incidentsQuery.data ?? [], [incidentsQuery.data])
 
-  const lastUpdated = useMemo(() => {
-    if (!dashboardQuery.dataUpdatedAt) {
-      return '—'
-    }
-    return new Date(dashboardQuery.dataUpdatedAt).toLocaleTimeString()
-  }, [dashboardQuery.dataUpdatedAt])
+  const sortedMonitors = useMemo(
+    () =>
+      [...monitors].sort((left, right) => {
+        const score = (monitor: Monitor) => {
+          if (!monitor.enabled) return 3
+          if (monitor.lastCheckStatus === 'DOWN') return 0
+          if (monitor.lastCheckStatus === 'UNKNOWN') return 1
+          return 2
+        }
 
-  if (dashboardQuery.isLoading) {
-    return <LoadingState title="Loading Ops Observability" description="Collecting scheduler, notifier, and DLQ telemetry." />
+        const scoreDiff = score(left) - score(right)
+        if (scoreDiff !== 0) return scoreDiff
+        return left.name.localeCompare(right.name)
+      }),
+    [monitors],
+  )
+
+  const sortedIncidents = useMemo(
+    () =>
+      [...incidents].sort((left, right) => {
+        const leftTime = new Date(left.openedAt).getTime()
+        const rightTime = new Date(right.openedAt).getTime()
+        return rightTime - leftTime
+      }),
+    [incidents],
+  )
+
+  const selectedIncident = useMemo(() => {
+    if (sortedIncidents.length === 0) return null
+    if (!selectedIncidentId) return sortedIncidents[0]
+    return sortedIncidents.find((incident) => incident.id === selectedIncidentId) ?? sortedIncidents[0]
+  }, [selectedIncidentId, sortedIncidents])
+
+  const downCount = useMemo(() => monitors.filter((monitor) => monitor.enabled && monitor.lastCheckStatus === 'DOWN').length, [monitors])
+  const upCount = useMemo(() => monitors.filter((monitor) => monitor.enabled && monitor.lastCheckStatus === 'UP').length, [monitors])
+
+  if (monitorsQuery.isLoading || incidentsQuery.isLoading) {
+    return <LoadingState title="Loading live dashboard" description="Fetching monitor states and incidents." />
   }
 
-  if (dashboardQuery.isError || !dashboardQuery.data) {
+  if (monitorsQuery.isError || incidentsQuery.isError) {
     return (
       <ErrorState
-        title="Ops observability unavailable"
-        description={describeObservabilityError(dashboardQuery.error)}
+        title="Dashboard data unavailable"
+        description="Could not load monitors or incidents. Verify API auth and retry."
         action={
-          <Button variant="secondary" onClick={() => void dashboardQuery.refetch()}>
+          <Button variant="secondary" onClick={() => { void monitorsQuery.refetch(); void incidentsQuery.refetch() }}>
             Retry
           </Button>
         }
@@ -77,101 +104,105 @@ export function DashboardPage() {
     )
   }
 
-  const { lock, scheduler, dlq, notifier, latency } = dashboardQuery.data
-
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold">Ops Observability Dashboard</h2>
-          <p className="text-sm text-text-secondary">Live operational telemetry for scheduler locks, delivery reliability, and alert pipeline health.</p>
+          <h2 className="text-2xl font-semibold">Operations Dashboard</h2>
+          <p className="text-sm text-text-secondary">Top: live monitor grid. Bottom: incident timeline for triage.</p>
         </div>
-        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-surface-border bg-bg-elevated p-3">
-          <Field label="Auto-refresh">
-            <Button variant={autoRefreshEnabled ? 'primary' : 'secondary'} onClick={() => setAutoRefreshEnabled((value) => !value)}>
-              {autoRefreshEnabled ? 'Enabled' : 'Paused'}
-            </Button>
-          </Field>
-          <Field label="Interval">
-            <SelectInput
-              value={refreshMs}
-              onChange={(event) => {
-                setRefreshMs(Number(event.target.value))
-              }}
-              disabled={!autoRefreshEnabled}
-            >
-              {refreshOptionsMs.map((option) => (
-                <option key={option} value={option}>
-                  {option / 1000}s
-                </option>
-              ))}
-            </SelectInput>
-          </Field>
-          <Field label="Last updated">
-            <p className="rounded-md border border-surface-border bg-bg-panel px-3 py-2 text-sm text-text-primary">{lastUpdated}</p>
-          </Field>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone={downCount > 0 ? 'critical' : 'success'}>{downCount} DOWN</Badge>
+          <Badge tone="success">{upCount} UP</Badge>
+          <Badge tone="neutral">{sortedIncidents.length} incidents</Badge>
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <DashboardPanel
-          title="Lock contention"
-          badge={{ text: formatPercent(lock.contentionRatio), tone: lock.contentionRatio > 0.2 ? 'critical' : lock.contentionRatio > 0.1 ? 'warning' : 'success' }}
-          lines={[
-            { label: 'Acquire success', value: formatCount(lock.lockAcquireSuccess) },
-            { label: 'Acquire fail', value: formatCount(lock.lockAcquireFail) },
-            { label: 'Acquire steals', value: formatCount(lock.lockAcquireSteal) },
-            { label: 'Renew failures', value: formatCount(lock.lockRenewFail) },
-          ]}
-        />
+      <section className="space-y-3" aria-label="Live monitor status grid">
+        <h3 className="text-lg font-semibold">Live monitor grid</h3>
+        {sortedMonitors.length === 0 ? (
+          <EmptyState title="No monitors yet" description="Create monitors to start live status tracking." />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {sortedMonitors.map((monitor) => (
+              <article key={monitor.id} className="rounded-lg border border-surface-border bg-bg-elevated p-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="truncate font-medium">{monitor.name}</p>
+                  <Badge tone={monitorTone(monitor.lastCheckStatus, monitor.enabled)}>{monitorLabel(monitor.lastCheckStatus, monitor.enabled)}</Badge>
+                </div>
+                <p className="line-clamp-1 text-xs text-text-secondary">{monitor.targetUrl}</p>
+                <p className="mt-2 text-xs text-text-muted">{formatTypeMetadata(monitor)}</p>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-text-muted">
+                  <p>Interval: {monitor.intervalSec}s</p>
+                  <p>Timeout: {monitor.timeoutMs}ms</p>
+                  <p>Status code: {monitor.lastStatusCode ?? '—'}</p>
+                  <p>Latency: {monitor.lastLatencyMs ?? '—'}ms</p>
+                </div>
+                <p className="mt-2 text-xs text-text-muted">Last check: {formatDateTime(monitor.lastCheckAt)}</p>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
-        <DashboardPanel
-          title="Scheduler skip rates"
-          badge={{ text: formatPercent(scheduler.skipLockRatio), tone: scheduler.skipLockRatio > 0.2 ? 'critical' : scheduler.skipLockRatio > 0.1 ? 'warning' : 'neutral' }}
-          lines={[
-            { label: 'Skip: distributed lock', value: formatCount(scheduler.skipLock) },
-            { label: 'Skip: local in-flight', value: formatCount(scheduler.skipLocalInflight) },
-            { label: 'Lock skip share', value: formatPercent(scheduler.skipLockRatio) },
-          ]}
-        />
+      <section className="space-y-3" aria-label="Incident timeline">
+        <h3 className="text-lg font-semibold">Incident timeline</h3>
+        {sortedIncidents.length === 0 ? (
+          <EmptyState title="No incidents" description="When monitors fail, incidents appear here for triage." />
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
+            <ol className="max-h-[60vh] space-y-2 overflow-auto rounded-lg border border-surface-border bg-bg-elevated p-3">
+              {sortedIncidents.map((incident: AdminIncident) => {
+                const selected = selectedIncident?.id === incident.id
+                return (
+                  <li key={incident.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIncidentId(incident.id)}
+                      className={`w-full rounded-md border p-3 text-left transition ${
+                        selected ? 'border-accent bg-bg-panel' : 'border-surface-border bg-bg-base hover:border-accent/40'
+                      }`}
+                    >
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-medium">{incident.monitorName}</p>
+                        <Badge tone={incidentTone(incident.state)}>{incident.state}</Badge>
+                      </div>
+                      <p className="line-clamp-2 text-xs text-text-secondary">{incident.reason}</p>
+                      <p className="mt-1 text-xs text-text-muted">Opened: {formatDateTime(incident.openedAt)}</p>
+                    </button>
+                  </li>
+                )
+              })}
+            </ol>
 
-        <DashboardPanel
-          title="DLQ backlog"
-          badge={{ text: formatCount(dlq.backlog), tone: dlq.backlog > 25 ? 'critical' : dlq.backlog > 0 ? 'warning' : 'success' }}
-          lines={[
-            { label: 'Current backlog', value: formatCount(dlq.backlog) },
-            { label: 'Oldest age', value: formatSeconds(dlq.oldestAgeSeconds) },
-          ]}
-        />
-
-        <DashboardPanel
-          title="Notifier failure rate"
-          badge={{ text: formatPercent(notifier.failureRatio), tone: notifier.failureRatio > 0.05 ? 'critical' : notifier.failureRatio > 0.01 ? 'warning' : 'success' }}
-          lines={[
-            { label: 'Dispatch success', value: formatCount(notifier.dispatchSuccess) },
-            { label: 'Dispatch failed', value: formatCount(notifier.dispatchFailed) },
-            { label: 'Failure ratio', value: formatPercent(notifier.failureRatio) },
-          ]}
-        />
-
-        <DashboardPanel
-          title="Dispatch latency"
-          badge={{ text: formatSeconds(latency.dispatchMeanSeconds), tone: latency.dispatchMeanSeconds > 5 ? 'warning' : 'neutral' }}
-          lines={[
-            { label: 'Mean latency', value: formatSeconds(latency.dispatchMeanSeconds) },
-            { label: 'Max latency', value: formatSeconds(latency.dispatchMaxSeconds) },
-          ]}
-        />
-
-        <DashboardPanel
-          title="Delivery latency"
-          badge={{ text: formatSeconds(latency.deliveryMeanSeconds), tone: latency.deliveryMeanSeconds > 120 ? 'critical' : latency.deliveryMeanSeconds > 60 ? 'warning' : 'success' }}
-          lines={[
-            { label: 'Mean delay', value: formatSeconds(latency.deliveryMeanSeconds) },
-            { label: 'Max delay', value: formatSeconds(latency.deliveryMaxSeconds) },
-          ]}
-        />
-      </div>
+            {selectedIncident ? (
+              <article className="rounded-lg border border-surface-border bg-bg-elevated p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-surface-border pb-3">
+                  <div>
+                    <h4 className="font-semibold">{selectedIncident.monitorName}</h4>
+                    <p className="text-xs text-text-muted">Incident ID: {selectedIncident.id}</p>
+                  </div>
+                  <Badge tone={incidentTone(selectedIncident.state)}>{selectedIncident.state}</Badge>
+                </div>
+                <dl className="space-y-2 text-sm">
+                  <div>
+                    <dt className="text-text-muted">Opened</dt>
+                    <dd className="text-text-secondary">{formatDateTime(selectedIncident.openedAt)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-text-muted">Resolved</dt>
+                    <dd className="text-text-secondary">{formatDateTime(selectedIncident.resolvedAt)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-text-muted">Reason</dt>
+                    <dd className="text-text-secondary">{selectedIncident.reason}</dd>
+                  </div>
+                </dl>
+              </article>
+            ) : null}
+          </div>
+        )}
+      </section>
     </section>
   )
 }

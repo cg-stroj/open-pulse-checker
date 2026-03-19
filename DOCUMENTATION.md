@@ -355,7 +355,7 @@ Pagination modes:
 Delivered frontend modules include:
 
 - **Admin auth/session UX** (`/login`, protected routes, 401/403 handling)
-- **Ops Dashboard** (`/dashboard`) for scheduler/alerting telemetry
+- **Operations Dashboard** (`/dashboard`) with top live monitor status grid and bottom incident timeline for fast triage
 - **Monitors** (`/monitors`) for list/detail/create/edit/toggle/run-check/delete with explicit impact confirmation
 - **Incidents Console** (`/incidents`) for lifecycle controls and annotations
 - **Maintenance Windows** (`/maintenance-windows`) CRUD and schedule configuration

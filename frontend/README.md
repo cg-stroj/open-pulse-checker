@@ -50,14 +50,13 @@ Default frontend URL: `http://localhost:5173`
   - global 403 handling: keeps session, shows access toast, redirects to `/unauthorized`
   - session state stored in `sessionStorage` only (tab-scoped, no password persisted directly)
 - Error boundary + global query-fetching top indicator
-- Ops Observability Dashboard (`/dashboard`):
-  - lock contention (acquire success/fail/steal + renew fail) and contention ratio
-  - scheduler skip telemetry (distributed lock vs local in-flight) with skip-share signal
-  - DLQ backlog and oldest-item age
-  - notifier dispatch success/failure with failure ratio
-  - dispatch and delivery latency (mean + max from actuator timer metrics)
-  - auto-refresh controls (enabled by default, configurable interval, last-updated display)
-  - explicit loading and retryable error state for actuator/metrics failures
+- Operations Dashboard (`/dashboard`):
+  - top live monitor grid, sorted for triage (DOWN first, then UNKNOWN/UP, disabled last)
+  - clear per-monitor status badges (`DOWN/UP/UNKNOWN/DISABLED`) with key metadata
+  - support surfaced for restored monitor capabilities: HTTP/TCP/PING + method + keyword (when HTTP)
+  - bottom incident timeline/list with selectable incident detail panel
+  - concise incident detail card for rapid operator inspection (opened/resolved/reason)
+  - responsive layout preserving hierarchy: monitor grid first, incident timeline second
 - Incidents Console (`/incidents`):
   - incident list + detail/timeline view
   - search/filter/sort baseline
@@ -117,9 +116,10 @@ Default frontend URL: `http://localhost:5173`
   - Playwright smoke specs under `e2e/smoke.spec.ts`
   - covers major route navigation + one key admin action flow (status page create)
 
-## Dashboard metrics source
-- Dashboard telemetry reads from backend actuator metrics endpoints (`/actuator/metrics/{name}`) using the current admin Basic session.
-- The frontend derives ratios from the latest cumulative counters/gauges and timer summaries returned by Spring Boot Actuator.
+## Dashboard data source
+- Dashboard live grid reads monitor state from `/api/v1/monitors`.
+- Dashboard incident timeline reads incident state from `/api/v1/admin/incidents`.
+- Both sections use the same admin session and query/cache primitives as existing Monitors/Incidents modules.
 
 ## Build / quality
 ```bash
