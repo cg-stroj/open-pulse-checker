@@ -194,10 +194,7 @@ public class MonitorService {
         }
 
         if (type == MonitorType.PING) {
-            String pingTarget = rawUrl.trim();
-            if (pingTarget.isBlank() || pingTarget.contains(" ")) {
-                throw new IllegalArgumentException("PING target must be a hostname or IP address.");
-            }
+            PingTargetParser.validateForConfiguration(rawUrl);
             return;
         }
 

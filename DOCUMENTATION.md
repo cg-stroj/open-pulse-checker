@@ -110,7 +110,7 @@ Request/response fields relevant to advanced checks:
 
 Behavior rules:
 - `HTTP` monitor target must be `http://` or `https://` URL.
-- `PING` monitor target uses URL validation as HTTP (`http/https` + host required).
+- `PING` monitor target must be a hostname or IPv4 address (for example `example.com` or `1.1.1.1`). URL schemes (`http://`, `https://`), paths, and ports are rejected at API validation.
 - `TCP` monitor target must use `host:port` format (for example `localhost:5432`).
 - For non-HTTP monitors (`TCP`, `PING`), `httpMethod` and `expectedResponseKeyword` are ignored/reset.
 - Keyword matching is a direct substring check (`contains`) against response body.
@@ -179,6 +179,7 @@ Behavior rules:
 - Setup is hard-locked once an initial `ADMIN` exists.
 - Auth success/failure and privileged writes are captured in audit logs.
 - Sensitive endpoints include rate limiting with `429` + retry hints.
+- Current auth/setup rate-limited routes: `GET /api/v1/admin/auth/login`, `GET /api/v1/setup/status`, `POST /api/v1/setup/first-admin`.
 
 ## Observability
 

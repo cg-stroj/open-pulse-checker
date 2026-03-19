@@ -138,4 +138,33 @@ class CheckExecutionServiceTest {
         assertNull(captor.getValue().getStatusCode());
         assertEquals("Host unreachable", captor.getValue().getError());
     }
+
+    @Test
+    void executesPingUsingHostnameTarget() {
+        UUID monitorId = UUID.randomUUID();
+        MonitorEntity monitor = new MonitorEntity();
+        monitor.setId(monitorId);
+        monitor.setType(MonitorType.PING);
+        monitor.setTargetUrl("example.com");
+        monitor.setTimeoutMs(700);
+
+        when(monitorService.getEntity(monitorId)).thenReturn(monitor);
+        when(networkCheckClient.executePing("example.com", 700))
+                .thenReturn(new HttpCheckOutcome(true, null, 15L, null));
+        when(checkResultRepository.save(any(CheckResultEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CheckExecutionService checkExecutionService = new CheckExecutionService(
+                monitorService,
+                httpCheckClient,
+                networkCheckClient,
+                checkResultRepository,
+                incidentService,
+                auditService,
+                new SimpleMeterRegistry());
+
+        checkExecutionService.runCheck(monitorId);
+
+        verify(networkCheckClient).executePing("example.com", 700);
+    }
 }
+

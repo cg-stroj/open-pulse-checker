@@ -3,7 +3,6 @@ package io.openpulsechecker.service;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.URI;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -31,12 +30,7 @@ public class DefaultNetworkCheckClient implements NetworkCheckClient {
         long start = System.nanoTime();
         int safeTimeout = Math.max(timeoutMs, 1);
         try {
-            URI uri = URI.create(targetUrl);
-            String host = uri.getHost();
-            if (host == null || host.isBlank()) {
-                throw new IllegalArgumentException("Target URL host is required");
-            }
-
+            String host = PingTargetParser.resolveHostForExecution(targetUrl);
             InetAddress address = InetAddress.getByName(host);
             boolean reachable = address.isReachable(safeTimeout);
             long latencyMs = (System.nanoTime() - start) / 1_000_000;

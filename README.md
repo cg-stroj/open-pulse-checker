@@ -5,7 +5,7 @@ Open Pulse Checker is a security-first, self-hosted monitoring platform for upti
 Current monitor types:
 - `HTTP` (custom HTTP method supported; defaults to `GET`)
 - `TCP` (`host:port` target)
-- `PING` (URL target)
+- `PING` (hostname or IPv4 target, for example `example.com` or `1.1.1.1`)
 
 HTTP monitors optionally support `expectedResponseKeyword` response-body matching.
 

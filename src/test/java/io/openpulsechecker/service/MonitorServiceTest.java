@@ -140,4 +140,55 @@ class MonitorServiceTest {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.create(request));
         assertEquals("Interval must be one of: 60, 120, 180, 240, 300 seconds (1-5 minutes).", ex.getMessage());
     }
+
+    @Test
+    void createRejectsPingUrlTarget() {
+        MonitorService service = new MonitorService(
+                monitorRepository,
+                checkResultRepository,
+                incidentRepository,
+                statusPageMonitorRepository,
+                auditService);
+
+        CreateMonitorRequest request = new CreateMonitorRequest(
+                "Ping",
+                MonitorType.PING,
+                "https://example.com",
+                60,
+                true,
+                1000,
+                null,
+                null,
+                null,
+                null);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.create(request));
+        assertEquals("PING target must be a hostname or IP address without URL scheme (e.g. example.com or 1.1.1.1).", ex.getMessage());
+    }
+
+    @Test
+    void createRejectsPingTargetWithPort() {
+        MonitorService service = new MonitorService(
+                monitorRepository,
+                checkResultRepository,
+                incidentRepository,
+                statusPageMonitorRepository,
+                auditService);
+
+        CreateMonitorRequest request = new CreateMonitorRequest(
+                "Ping",
+                MonitorType.PING,
+                "example.com:443",
+                60,
+                true,
+                1000,
+                null,
+                null,
+                null,
+                null);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.create(request));
+        assertEquals("PING target must not include a port. Use hostname/IP only.", ex.getMessage());
+    }
 }
+

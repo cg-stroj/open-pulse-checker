@@ -201,6 +201,44 @@ class MonitorApiIntegrationTest extends H2TestDatabaseSupport {
     }
 
     @Test
+    void createRejectsPingUrlTarget() throws Exception {
+        mockMvc.perform(post("/api/v1/monitors")
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Bad Ping",
+                                  "type": "PING",
+                                  "targetUrl": "https://example.com",
+                                  "intervalSec": 60,
+                                  "enabled": true,
+                                  "timeoutMs": 1200
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("PING target must be a hostname or IP address without URL scheme (e.g. example.com or 1.1.1.1)."));
+    }
+
+    @Test
+    void createRejectsPingTargetWithPort() throws Exception {
+        mockMvc.perform(post("/api/v1/monitors")
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Bad Ping Port",
+                                  "type": "PING",
+                                  "targetUrl": "example.com:443",
+                                  "intervalSec": 60,
+                                  "enabled": true,
+                                  "timeoutMs": 1200
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("PING target must not include a port. Use hostname/IP only."));
+    }
+
+    @Test
     void createRejectsInvalidIntervalValue() throws Exception {
         mockMvc.perform(post("/api/v1/monitors")
                         .with(httpBasic("admin", "admin-change-me"))

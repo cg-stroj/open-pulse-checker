@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+
 import io.openpulsechecker.apikey.ApiKeyHasher;
 import io.openpulsechecker.apikey.ServiceApiKeyEntity;
 import io.openpulsechecker.apikey.ServiceApiKeyRepository;
@@ -111,6 +113,17 @@ class ApiKeyAndRateLimitIntegrationTest extends H2TestDatabaseSupport {
         mockMvc.perform(get("/api/v1/setup/status")).andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/setup/status")).andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/setup/status"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"));
+    }
+
+    @Test
+    void adminAuthLoginEndpointIsRateLimitedAsSensitive() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/auth/login").with(httpBasic("admin", "admin-change-me")))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/admin/auth/login").with(httpBasic("admin", "admin-change-me")))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/admin/auth/login").with(httpBasic("admin", "admin-change-me")))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(header().exists("Retry-After"));
     }

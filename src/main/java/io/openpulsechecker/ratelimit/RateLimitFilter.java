@@ -42,8 +42,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private boolean isSensitive(HttpServletRequest request) {
         String method = request.getMethod();
         String uri = request.getRequestURI();
-        if (uri.startsWith("/api/v1/auth")) return true;
-        if (uri.startsWith("/api/v1/setup")) return true;
+
+        if ("GET".equals(method) && "/api/v1/admin/auth/login".equals(uri)) return true;
+        if ("GET".equals(method) && "/api/v1/setup/status".equals(uri)) return true;
+        if ("POST".equals(method) && "/api/v1/setup/first-admin".equals(uri)) return true;
+
         if (!uri.startsWith("/api/v1/monitors")) return false;
         if ("POST".equals(method) || "PATCH".equals(method)) return true;
         return "POST".equals(method) && uri.endsWith("/run-check");
