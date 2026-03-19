@@ -43,6 +43,8 @@ openpulse:
   scheduler:
     poll-interval-ms: 5000
     worker-pool-size: 4
+  retention:
+    cleanup-interval-ms: 3600000
   alerting:
     webhook:
       enabled: false

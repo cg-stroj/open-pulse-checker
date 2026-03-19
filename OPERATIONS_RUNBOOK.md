@@ -156,9 +156,27 @@ Deterministic delete policy:
 
 Recovery and rollback notes:
 - Deletion is destructive for monitor configuration and status-page binding links.
-- Historical check/incident rows are intentionally preserved by refusing deletion while they exist.
+- Monitor deletion remains blocked while history exists; retention cleanup (30-day window) removes old history automatically.
 - If a monitor was deleted by mistake, recreate monitor with same target/config and reattach to status pages.
 - For incident timeline continuity, prefer disabling monitors instead of deleting when history exists.
+
+## Monitor history retention operations (Ticket #116)
+
+Policy:
+- Fixed 30-day retention for monitor history.
+- Purged datasets:
+  - `check_results.checked_at < now-30d`
+  - `incidents.resolved_at < now-30d` (resolved incidents only)
+- `incident_manual_events` are removed automatically via `ON DELETE CASCADE` when parent incidents are purged.
+
+Execution model:
+- Scheduled cleanup job runs periodically (`openpulse.retention.cleanup-interval-ms`, default `3600000` ms).
+- Job is protected by distributed scheduler lock (`scheduler_locks`) to avoid multi-node double execution.
+
+Operator notes:
+- Open incidents are intentionally retained until resolved.
+- Dashboard/admin/status APIs automatically show only retained history because old rows are physically purged.
+- If cleanup appears stalled, inspect scheduler lock health and application logs for `Monitor history retention cleanup failed`.
 
 ## Incident manual lifecycle operations (Ticket #42)
 

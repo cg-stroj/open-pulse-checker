@@ -224,6 +224,19 @@ Manual actions require reason input and are persisted in:
 - `incident_manual_events` (domain-level incident trail)
 - `audit_events` (security/compliance trail)
 
+## Monitor history retention (Ticket #116)
+
+Fixed retention policy:
+- Monitor check history (`check_results`) is retained for exactly 30 days.
+- Resolved incidents (`incidents` with non-null `resolved_at`) are retained for exactly 30 days based on `resolved_at`.
+- Open incidents are not purged by retention while still active.
+- Incident manual events are cleaned up automatically through FK cascade when their parent incident is purged.
+
+Cleanup execution:
+- A scheduled cleanup job runs periodically and purges records older than the 30-day cutoff.
+- Cleanup is lock-protected using `scheduler_locks` so only one node performs retention at a time.
+- APIs naturally reflect the retained window because data is removed at persistence level.
+
 ## Maintenance windows
 
 Maintenance windows are policy-aware schedule overlays for planned operational work.

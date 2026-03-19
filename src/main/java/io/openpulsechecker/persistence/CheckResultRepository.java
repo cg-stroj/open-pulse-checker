@@ -1,11 +1,14 @@
 package io.openpulsechecker.persistence;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface CheckResultRepository extends JpaRepository<CheckResultEntity, UUID> {
     Optional<CheckResultEntity> findTopByMonitorIdOrderByCheckedAtDesc(UUID monitorId);
@@ -20,4 +23,11 @@ public interface CheckResultRepository extends JpaRepository<CheckResultEntity, 
             )
             """)
     List<CheckResultEntity> findLatestForMonitorIds(Collection<UUID> monitorIds);
+
+    @Modifying
+    @Query("""
+            delete from CheckResultEntity c
+            where c.checkedAt < :cutoff
+            """)
+    int deleteByCheckedAtBefore(@Param("cutoff") Instant cutoff);
 }
