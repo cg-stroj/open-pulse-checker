@@ -17,7 +17,7 @@
 - `api`: monitor + health endpoints
 - `service`: monitor lifecycle, check execution, scheduler dispatch
 - `schedulerlock`: DB-backed distributed lease lock (`scheduler_locks`)
-- `alerting`: alert dispatch + webhook notifier with retry/idempotency dedupe
+- `alerting`: alert dispatch with retry/idempotency dedupe; minimal release runtime routing is email-only (multi-channel components remain parked for future phases)
 - `auth`: DB user/role persistence + DB `UserDetailsService` + bootstrap admin initializer
 - `audit`: persistent auth and write-action audit trail
 - `persistence`: monitor/check/incident JPA model + Flyway migrations
@@ -27,7 +27,7 @@
 2. For each monitor, attempts DB lease lock (`monitor-check:{id}`)
 3. If acquired, check executes and result persists
 4. Incident transition emits alert event
-5. Webhook notifier sends with deterministic idempotency key + bounded retries
+5. Email notifier sends with deterministic idempotency key + bounded retries (minimal release scope)
 6. Successful deliveries are deduped via `dispatched_alerts`
 7. Writes/auth events emit persistent audit records
 

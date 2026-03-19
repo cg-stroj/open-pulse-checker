@@ -120,6 +120,7 @@ Guardrails:
 - Apply schema changes with reviewed SQL migrations committed under `src/main/resources/db/migration`.
 - `V10__setup_state_id_integer.sql` automatically upgrades legacy `setup_state.id` from `SMALLINT` to `INTEGER` at startup (no manual SQL required).
 - Phase 2.1 adds `V5__phase2_1_notification_policy.sql` and `V6__phase2_1_maintenance_windows.sql`.
+- Minimal release scope lock (Ticket #118): only `EMAIL` channel is active in notification policy API/runtime paths.
 - Post-deploy checks:
   - verify policy scope uniqueness and dispatch metadata indexes
   - verify `maintenance_windows` constraints for scope/type integrity
@@ -283,10 +284,10 @@ Behavior:
 4. Confirm `openpulse.alerts.dlq.backlog` returns toward 0 and oldest age drops.
 
 #### 4) Notifier failure ratio critical
-1. Check upstream webhook SLO/status page and outbound network controls.
-2. Confirm `openpulse.alerts.dispatch.attempts{outcome="failed"}` by channel.
-3. If channel-specific, isolate failing channel and keep healthy channels active.
-4. If global, activate incident communication fallback and reduce duplicate traffic.
+1. Minimal release scope is **email-only**; check upstream email gateway/API status and outbound network controls.
+2. Confirm `openpulse.alerts.dispatch.attempts{channel="EMAIL",outcome="failed"}` trend.
+3. Validate email credentials/token + recipient routing, then replay failed alerts from DLQ if needed.
+4. If failure persists, activate incident communication fallback and reduce duplicate traffic.
 
 #### 5) Alert delivery delay p95 high
 1. Inspect `openpulse.alerts.dispatch.latency` vs `openpulse.alerts.delivery.delay`.

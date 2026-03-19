@@ -70,6 +70,11 @@ This roadmap is a chronological delivery record for Open Pulse Checker.
 - Added optional `expectedResponseKeyword` matching for HTTP response-body validation.
 - Added monitor-form UX updates for type-specific fields and target format hints.
 
+### Phase 2.7 · Minimal-release notification scope lock (Ticket #118)
+- Active notification routing is now **email-only** in minimal release flows.
+- Non-email channels (Slack/Teams/Discord/Telegram/Webhook) are blocked on admin policy write paths and filtered out of runtime dispatch plans.
+- Channel architecture remains extensible for future phases, but non-email channels are not active in current release behavior.
+
 ## What still needs to be completed (operator-level) to be fully functional for first monitor
 
 The product features are delivered; remaining work is mainly **deployment/operations execution** on target host:
@@ -84,7 +89,7 @@ The product features are delivered; remaining work is mainly **deployment/operat
    - Add monitor target URL, interval, timeout, and enabled state.
    - Run first manual check and confirm incident/health behavior.
 5. **Alert route verification:**
-   - Validate notification channel (webhook/other configured route) with one controlled alert scenario.
+   - Validate the configured **email notification** route with one controlled alert scenario (minimal release scope).
 6. **Public status page verification (if used):**
    - Create/attach monitor, validate slug/public visibility behavior.
 7. **Release gate closeout (recommended):**
@@ -102,7 +107,7 @@ Repository audit verdict: strong backend/security governance baseline, but not y
 
 ### Key findings (from code + test audit)
 - Monitor coverage is still limited to `HTTP`, `TCP`, `PING` (no DNS/SSL/DB/container monitors yet).
-- Notification channels are limited (`NotificationChannel` currently supports `WEBHOOK` only).
+- Minimal-release routing is intentionally locked to `EMAIL` only (non-email channels are parked for later rollout).
 - CI currently validates backend build/test, but does not run frontend quality gates (`lint`, `build`, `e2e smoke`) in GitHub Actions.
 - Local backend test reproducibility is fragile in env-mismatch scenarios (PostgreSQL auth mismatch surfaced during audit run).
 - Product differentiation opportunities remain open: SLO/SLA reporting, richer status-page communications, stronger enterprise auth/tenant capabilities.

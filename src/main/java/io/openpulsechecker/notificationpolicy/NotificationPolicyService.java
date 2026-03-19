@@ -64,11 +64,11 @@ public class NotificationPolicyService {
 
     public NotificationPolicyModel toModel(NotificationPolicyEntity entity) {
         List<NotificationPolicyModel.RouteRule> routes = routeRuleRepository.findByPolicyId(entity.getId()).stream()
-                .map(r -> new NotificationPolicyModel.RouteRule(r.getSeverity(), r.toChannels()))
+                .map(r -> new NotificationPolicyModel.RouteRule(r.getSeverity(), sanitizeChannels(r.toChannels())))
                 .sorted(Comparator.comparing(NotificationPolicyModel.RouteRule::severity))
                 .toList();
         List<NotificationPolicyModel.EscalationStep> steps = escalationStepRepository.findByPolicyIdOrderByStepOrderAsc(entity.getId()).stream()
-                .map(s -> new NotificationPolicyModel.EscalationStep(s.getStepOrder(), s.getAfterSeconds(), s.getMinSeverity(), s.toChannels()))
+                .map(s -> new NotificationPolicyModel.EscalationStep(s.getStepOrder(), s.getAfterSeconds(), s.getMinSeverity(), sanitizeChannels(s.toChannels())))
                 .toList();
         return new NotificationPolicyModel(entity.getId(), entity.getScopeType(), entity.getScopeRefId(), entity.isEnabled(),
                 entity.getCooldownSeconds(), entity.getDedupSeconds(), routes, steps, entity.getCreatedAt(), entity.getUpdatedAt());
@@ -112,14 +112,18 @@ public class NotificationPolicyService {
         Set<NotificationSeverity> seenSeverities = EnumSet.noneOf(NotificationSeverity.class);
         for (NotificationPolicyModel.RouteRule route : input.routes()) {
             if (!seenSeverities.add(route.severity())) throw new IllegalArgumentException("Duplicate severity route: " + route.severity());
-            if (route.channels() == null || route.channels().isEmpty()) throw new IllegalArgumentException("At least one channel required for route: " + route.severity());
+            NotificationChannelScope.assertOnlyActive(route.channels(), "Route channels for " + route.severity());
         }
         if (seenSeverities.size() != NotificationSeverity.values().length) throw new IllegalArgumentException("Routes must include all severities exactly once");
         Set<Integer> orders = input.escalationSteps().stream().map(NotificationPolicyModel.EscalationStep::stepOrder).collect(Collectors.toSet());
         if (orders.size() != input.escalationSteps().size()) throw new IllegalArgumentException("Escalation step order must be unique");
-        if (input.escalationSteps().stream().anyMatch(step -> step.channels() == null || step.channels().isEmpty())) {
-            throw new IllegalArgumentException("At least one channel required per escalation step");
-        }
+        input.escalationSteps().forEach(step ->
+                NotificationChannelScope.assertOnlyActive(step.channels(), "Escalation step channels for stepOrder=" + step.stepOrder()));
+    }
+
+    private java.util.Set<NotificationChannel> sanitizeChannels(java.util.Set<NotificationChannel> channels) {
+        java.util.Set<NotificationChannel> filtered = NotificationChannelScope.filterToActive(channels);
+        return filtered.isEmpty() ? NotificationChannelScope.activeChannels() : filtered;
     }
 
     private NotificationPolicyEntity requirePolicy(UUID id) {

@@ -1,6 +1,7 @@
 package io.openpulsechecker.api.admin;
 
 import io.openpulsechecker.alerting.AlertDispatchService;
+import io.openpulsechecker.notificationpolicy.NotificationChannelScope;
 import io.openpulsechecker.notificationpolicy.NotificationPolicyModel;
 import io.openpulsechecker.notificationpolicy.NotificationPolicyService;
 import jakarta.validation.Valid;
@@ -59,8 +60,13 @@ public class AdminNotificationPolicyController {
                                     @RequestBody(required = false) NotificationPolicyTestTriggerRequest request) {
         NotificationPolicyModel model = notificationPolicyService.get(id);
         Set<io.openpulsechecker.notificationpolicy.NotificationChannel> channels = request != null && request.channels() != null && !request.channels().isEmpty()
-                ? EnumSet.copyOf(request.channels())
-                : model.routes().stream().flatMap(r -> r.channels().stream()).collect(java.util.stream.Collectors.toCollection(() -> EnumSet.noneOf(io.openpulsechecker.notificationpolicy.NotificationChannel.class)));
+                ? NotificationChannelScope.filterToActive(request.channels())
+                : model.routes().stream().flatMap(r -> r.channels().stream())
+                .collect(java.util.stream.Collectors.toCollection(() -> EnumSet.noneOf(io.openpulsechecker.notificationpolicy.NotificationChannel.class)));
+        channels = NotificationChannelScope.filterToActive(channels);
+        if (channels.isEmpty()) {
+            channels = NotificationChannelScope.activeChannels();
+        }
         alertDispatchService.dispatchTest(id, channels, request == null ? "policy-test" : request.reason());
         return Map.of("status", "triggered", "policyId", id.toString(), "channels", channels.toString());
     }

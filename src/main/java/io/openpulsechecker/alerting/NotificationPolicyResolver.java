@@ -1,6 +1,7 @@
 package io.openpulsechecker.alerting;
 
 import io.openpulsechecker.notificationpolicy.NotificationChannel;
+import io.openpulsechecker.notificationpolicy.NotificationChannelScope;
 import io.openpulsechecker.notificationpolicy.NotificationPolicyModel;
 import io.openpulsechecker.notificationpolicy.NotificationPolicyRepository;
 import io.openpulsechecker.notificationpolicy.NotificationPolicyScopeType;
@@ -40,7 +41,7 @@ public class NotificationPolicyResolver {
         NotificationPolicyModel policy = resolvePolicyForMonitor(event.monitorId()).orElse(null);
 
         if (policy == null) {
-            return Optional.of(new NotificationDispatchPlan(null, severity, 0, 0, EnumSet.allOf(NotificationChannel.class), null));
+            return Optional.of(new NotificationDispatchPlan(null, severity, 0, 0, NotificationChannelScope.activeChannels(), null));
         }
         if (!policy.enabled()) {
             return Optional.empty();
@@ -49,7 +50,7 @@ public class NotificationPolicyResolver {
         NotificationPolicyModel.RouteRule route = policy.routes().stream()
                 .filter(r -> r.severity() == severity)
                 .findFirst()
-                .orElse(new NotificationPolicyModel.RouteRule(severity, EnumSet.of(NotificationChannel.WEBHOOK)));
+                .orElse(new NotificationPolicyModel.RouteRule(severity, NotificationChannelScope.activeChannels()));
 
         Set<NotificationChannel> channels = EnumSet.copyOf(route.channels());
 
@@ -57,6 +58,11 @@ public class NotificationPolicyResolver {
             if (step.afterSeconds() == 0 && severity.ordinal() <= step.minSeverity().ordinal()) {
                 channels.addAll(step.channels());
             }
+        }
+
+        channels = NotificationChannelScope.filterToActive(channels);
+        if (channels.isEmpty()) {
+            channels = NotificationChannelScope.activeChannels();
         }
 
         if (channels.contains(NotificationChannel.EMAIL) && !isEmailAllowedForEvent(event)) {

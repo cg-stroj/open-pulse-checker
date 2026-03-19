@@ -61,13 +61,13 @@ class AdminNotificationPolicyApiIntegrationTest extends H2TestDatabaseSupport {
                   "cooldownSeconds":120,
                   "dedupSeconds":60,
                   "routes":[
-                    {"severity":"CRITICAL","channels":["WEBHOOK"]},
-                    {"severity":"HIGH","channels":["WEBHOOK"]},
-                    {"severity":"MEDIUM","channels":["WEBHOOK"]},
+                    {"severity":"CRITICAL","channels":["EMAIL"]},
+                    {"severity":"HIGH","channels":["EMAIL"]},
+                    {"severity":"MEDIUM","channels":["EMAIL"]},
                     {"severity":"LOW","channels":["EMAIL"]},
-                    {"severity":"INFO","channels":["TELEGRAM"]}
+                    {"severity":"INFO","channels":["EMAIL"]}
                   ],
-                  "escalationSteps":[{"stepOrder":1,"afterSeconds":0,"minSeverity":"CRITICAL","channels":["WEBHOOK","SLACK"]}]
+                  "escalationSteps":[{"stepOrder":1,"afterSeconds":0,"minSeverity":"CRITICAL","channels":["EMAIL"]}]
                 }
                 """;
 
@@ -85,5 +85,30 @@ class AdminNotificationPolicyApiIntegrationTest extends H2TestDatabaseSupport {
 
         mockMvc.perform(get("/api/v1/admin/notification-policies").with(httpBasic("admin", "admin-change-me")))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void createRejectsNonEmailChannelsInMinimalRelease() throws Exception {
+        String invalidPayload = """
+                {
+                  "scopeType":"GLOBAL",
+                  "enabled":true,
+                  "cooldownSeconds":120,
+                  "dedupSeconds":60,
+                  "routes":[
+                    {"severity":"CRITICAL","channels":["WEBHOOK"]},
+                    {"severity":"HIGH","channels":["EMAIL"]},
+                    {"severity":"MEDIUM","channels":["EMAIL"]},
+                    {"severity":"LOW","channels":["EMAIL"]},
+                    {"severity":"INFO","channels":["EMAIL"]}
+                  ]
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/admin/notification-policies")
+                        .with(httpBasic("admin", "admin-change-me"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidPayload))
+                .andExpect(status().isBadRequest());
     }
 }

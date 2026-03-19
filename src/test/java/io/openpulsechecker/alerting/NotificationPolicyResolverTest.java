@@ -25,6 +25,26 @@ import org.junit.jupiter.api.Test;
 class NotificationPolicyResolverTest {
 
     @Test
+    void defaultsToEmailOnlyWhenNoPolicyExists() {
+        NotificationPolicyRepository policyRepository = org.mockito.Mockito.mock(NotificationPolicyRepository.class);
+        NotificationPolicyService policyService = org.mockito.Mockito.mock(NotificationPolicyService.class);
+        StatusPageMonitorRepository statusPageMonitorRepository = org.mockito.Mockito.mock(StatusPageMonitorRepository.class);
+        MonitorRepository monitorRepository = org.mockito.Mockito.mock(MonitorRepository.class);
+
+        NotificationPolicyResolver resolver = new NotificationPolicyResolver(policyRepository, policyService, statusPageMonitorRepository, monitorRepository);
+
+        UUID monitorId = UUID.randomUUID();
+        when(policyRepository.findByScopeTypeAndScopeRefId(NotificationPolicyScopeType.MONITOR, monitorId)).thenReturn(Optional.empty());
+        when(statusPageMonitorRepository.findByMonitorId(monitorId)).thenReturn(List.of());
+        when(policyRepository.findByScopeType(NotificationPolicyScopeType.GLOBAL)).thenReturn(Optional.empty());
+
+        NotificationDispatchPlan plan = resolver.resolve(new AlertEvent(
+                AlertEventType.INCIDENT_OPENED, monitorId, UUID.randomUUID(), Instant.now(), "down")).orElseThrow();
+
+        assertEquals(EnumSet.of(io.openpulsechecker.notificationpolicy.NotificationChannel.EMAIL), plan.channels());
+    }
+
+    @Test
     void monitorPolicyOverridesStatusPageAndGlobal() {
         NotificationPolicyRepository policyRepository = org.mockito.Mockito.mock(NotificationPolicyRepository.class);
         NotificationPolicyService policyService = org.mockito.Mockito.mock(NotificationPolicyService.class);
@@ -52,7 +72,7 @@ class NotificationPolicyResolverTest {
                 AlertEventType.INCIDENT_OPENED, monitorId, UUID.randomUUID(), Instant.now(), "down")).orElseThrow();
 
         assertEquals(monitorPolicy.id(), plan.policyId());
-        assertTrue(plan.channels().contains(io.openpulsechecker.notificationpolicy.NotificationChannel.WEBHOOK));
+        assertTrue(plan.channels().contains(io.openpulsechecker.notificationpolicy.NotificationChannel.EMAIL));
     }
 
     @Test
@@ -83,7 +103,7 @@ class NotificationPolicyResolverTest {
                 AlertEventType.INCIDENT_OPENED, monitorId, UUID.randomUUID(), Instant.now(), "down")).orElseThrow();
 
         assertFalse(plan.channels().contains(io.openpulsechecker.notificationpolicy.NotificationChannel.EMAIL));
-        assertTrue(plan.channels().contains(io.openpulsechecker.notificationpolicy.NotificationChannel.WEBHOOK));
+        assertFalse(plan.channels().contains(io.openpulsechecker.notificationpolicy.NotificationChannel.WEBHOOK));
     }
 
     private NotificationPolicyModel model(UUID id) {
