@@ -82,6 +82,8 @@ openpulse:
       initial-backoff-ms: 100
   security:
     auth-mode: db
+    cors-allowed-origins: ${OPENPULSE_SECURITY_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+    cors-allow-credentials: ${OPENPULSE_SECURITY_CORS_ALLOW_CREDENTIALS:true}
     bootstrap-admin:
       enabled: false
       emergency-fallback-enabled: false

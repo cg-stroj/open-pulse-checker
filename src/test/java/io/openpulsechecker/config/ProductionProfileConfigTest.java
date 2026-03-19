@@ -17,6 +17,8 @@ class ProductionProfileConfigTest {
 
         assertTrue(prodYaml.contains("org.postgresql.Driver"));
         assertTrue(prodYaml.contains("jdbc:postgresql://"));
+        assertTrue(prodYaml.contains("cors-allowed-origins"));
+        assertFalse(prodYaml.contains("cors-allowed-origins: *"));
         assertFalse(prodYaml.toLowerCase().contains("h2"));
     }
 }

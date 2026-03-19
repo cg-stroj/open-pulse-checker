@@ -44,6 +44,27 @@
 ## Reporting
 Please use GitHub private security advisories for vulnerabilities.
 
+## CORS policy hardening (Task #122)
+
+- CORS now uses an explicit allowlist via `openpulse.security.cors-allowed-origins`.
+- Wildcard (`*`) origins are not allowed when `openpulse.security.cors-allow-credentials=true`.
+- Credentialed cross-origin access is enabled by default (`true`) and therefore must only be used with trusted explicit origins.
+- Production-safe default: no cross-origin origins configured unless explicitly set.
+
+Example (development):
+```yaml
+openpulse:
+  security:
+    cors-allowed-origins: http://localhost:5173,http://127.0.0.1:5173
+    cors-allow-credentials: true
+```
+
+Example (production):
+```bash
+OPENPULSE_SECURITY_CORS_ALLOWED_ORIGINS=https://status.example.com,https://admin.example.com
+OPENPULSE_SECURITY_CORS_ALLOW_CREDENTIALS=true
+```
+
 ## API key and monitoring security
 
 - API keys are service-account credentials carried in `X-API-Key` using `keyId.secret` format.

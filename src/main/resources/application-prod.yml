@@ -15,6 +15,8 @@ spring:
 
 openpulse:
   security:
+    cors-allowed-origins: ${OPENPULSE_SECURITY_CORS_ALLOWED_ORIGINS:}
+    cors-allow-credentials: ${OPENPULSE_SECURITY_CORS_ALLOW_CREDENTIALS:true}
     bootstrap-admin:
       enabled: ${OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_ENABLED:false}
       emergency-fallback-enabled: ${OPENPULSE_SECURITY_BOOTSTRAP_ADMIN_EMERGENCY_FALLBACK_ENABLED:false}

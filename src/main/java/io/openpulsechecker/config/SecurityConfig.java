@@ -32,6 +32,12 @@ import java.util.List;
 })
 public class SecurityConfig {
 
+    private final SecurityProperties securityProperties;
+
+    public SecurityConfig(SecurityProperties securityProperties) {
+        this.securityProperties = securityProperties;
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    ApiKeyAuthenticationFilter apiKeyAuthenticationFilter,
@@ -71,10 +77,22 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        List<String> allowedOrigins = securityProperties.corsAllowedOrigins() == null
+                ? List.of()
+                : securityProperties.corsAllowedOrigins().stream()
+                .filter(origin -> origin != null && !origin.isBlank())
+                .map(String::trim)
+                .toList();
+
+        boolean allowCredentials = securityProperties.corsAllowCredentials();
+        if (allowCredentials && allowedOrigins.stream().anyMatch("*"::equals)) {
+            throw new IllegalStateException("Invalid CORS configuration: wildcard origin cannot be used when credentials are enabled");
+        }
+
+        configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-API-Key"));
-        configuration.setAllowCredentials(true);
+        configuration.setAllowCredentials(allowCredentials);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

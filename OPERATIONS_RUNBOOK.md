@@ -95,6 +95,31 @@ Guardrails:
 - Fallback is blocked after setup completion (`setup_state.setup_locked=true`).
 - Fallback is blocked if any `ADMIN` role already exists.
 
+## CORS configuration operations (Task #122)
+
+Configuration knobs:
+- `OPENPULSE_SECURITY_CORS_ALLOWED_ORIGINS` — comma-separated allowlist of exact origins.
+- `OPENPULSE_SECURITY_CORS_ALLOW_CREDENTIALS` — set `true` only with explicit trusted origins.
+
+Recommended values:
+- Dev: `OPENPULSE_SECURITY_CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`
+- Prod: explicit UI domains only (no wildcard).
+
+Validation and safety:
+- If `OPENPULSE_SECURITY_CORS_ALLOW_CREDENTIALS=true` and allowlist contains `*`, startup fails fast.
+- Empty allowlist means no browser cross-origin access is allowed.
+
+Rollback (CORS-only):
+1. Restore last known-good `OPENPULSE_SECURITY_CORS_ALLOWED_ORIGINS` value from deployment config history.
+2. Restart application.
+3. Verify from a trusted origin:
+   ```bash
+   curl -i -X OPTIONS http://localhost:8080/api/v1/health \
+     -H "Origin: https://trusted.example.com" \
+     -H "Access-Control-Request-Method: GET"
+   ```
+4. Confirm `Access-Control-Allow-Origin` appears only for allowed origins.
+
 ## Backup before deploy/migration
 1. Put deployment in maintenance window.
 2. Verify target image/tag and migration scripts to be applied.
