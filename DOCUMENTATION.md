@@ -66,8 +66,15 @@ All examples assume default base URL: `http://localhost:8080`.
 
 ### First-run setup APIs
 
-- `GET /api/v1/setup/status` (public; returns setup lock state and one-time setup token while setup is still open)
-- `POST /api/v1/setup/first-admin` (public; requires setup token, creates initial `ADMIN`, then hard-locks setup)
+- `GET /api/v1/setup/status` (public route; while setup is open it can be protected by bootstrap guard and returns setup lock state + one-time setup token)
+- `POST /api/v1/setup/first-admin` (public route; requires setup token, can be bootstrap-guarded, creates initial `ADMIN`, then hard-locks setup)
+
+Bootstrap guard (pre-lock window only):
+- Enable with `openpulse.security.setup.bootstrap-protection-enabled=true`
+- Allow request with either:
+  - `X-Setup-Bootstrap-Secret: <secret>` matching `openpulse.security.setup.bootstrap-secret`, or
+  - source IP matching `openpulse.security.setup.bootstrap-allowed-cidrs`
+- Denied attempts are logged to audit trail as action `SETUP_BOOTSTRAP_DENIED`.
 
 ### Monitor APIs
 

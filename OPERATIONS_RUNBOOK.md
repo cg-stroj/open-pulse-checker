@@ -78,8 +78,14 @@ Optional full env cleanup:
 ## Admin onboarding and emergency bootstrap fallback
 
 Default path (recommended):
-1. Use onboarding endpoints (`GET /api/v1/setup/status`, `POST /api/v1/setup/first-admin`) to create the first admin.
-2. Keep bootstrap admin fallback flags disabled.
+1. Enable setup bootstrap protection before first-run onboarding:
+   - `OPENPULSE_SECURITY_SETUP_BOOTSTRAP_PROTECTION_ENABLED=true`
+   - Set at least one access path:
+     - shared secret challenge: `OPENPULSE_SECURITY_SETUP_BOOTSTRAP_SECRET=<strong-random-secret>`
+     - and/or network allowlist: `OPENPULSE_SECURITY_SETUP_BOOTSTRAP_ALLOWED_CIDRS=<cidr1,cidr2>`
+2. Call onboarding endpoints (`GET /api/v1/setup/status`, `POST /api/v1/setup/first-admin`) using either allowlisted network access or header `X-Setup-Bootstrap-Secret`.
+3. After first admin is created (`setup locked`), keep protection enabled or rotate/remove setup secret.
+4. Keep bootstrap admin fallback flags disabled.
 
 Emergency-only fallback (break-glass):
 1. Set both flags to `true` before startup:
@@ -94,6 +100,16 @@ Emergency-only fallback (break-glass):
 Guardrails:
 - Fallback is blocked after setup completion (`setup_state.setup_locked=true`).
 - Fallback is blocked if any `ADMIN` role already exists.
+
+Setup bootstrap protection recovery/rollback:
+1. If onboarding is blocked by misconfigured guard, first verify denied attempts in audit trail (`SETUP_BOOTSTRAP_DENIED`).
+2. Recovery path A (preferred): fix guard config and restart app.
+   - Correct secret: `OPENPULSE_SECURITY_SETUP_BOOTSTRAP_SECRET=...`
+   - Correct allowlist: `OPENPULSE_SECURITY_SETUP_BOOTSTRAP_ALLOWED_CIDRS=...`
+3. Recovery path B (temporary rollback): disable guard and restart app.
+   - `OPENPULSE_SECURITY_SETUP_BOOTSTRAP_PROTECTION_ENABLED=false`
+4. Complete first-admin onboarding immediately.
+5. Re-enable protection with corrected values and rotate setup secret.
 
 ## CORS configuration operations (Task #122)
 

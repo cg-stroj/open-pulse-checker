@@ -96,6 +96,9 @@ openpulse:
       secret: ""
     setup:
       token-ttl-seconds: 900
+      bootstrap-protection-enabled: ${OPENPULSE_SECURITY_SETUP_BOOTSTRAP_PROTECTION_ENABLED:false}
+      bootstrap-secret: ${OPENPULSE_SECURITY_SETUP_BOOTSTRAP_SECRET:}
+      bootstrap-allowed-cidrs: ${OPENPULSE_SECURITY_SETUP_BOOTSTRAP_ALLOWED_CIDRS:}
   rate-limit:
     sensitive:
       capacity: 10

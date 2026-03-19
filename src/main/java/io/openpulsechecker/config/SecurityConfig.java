@@ -5,6 +5,7 @@ import io.openpulsechecker.apikey.ApiKeyBootstrapProperties;
 import io.openpulsechecker.auth.AdminBootstrapProperties;
 import io.openpulsechecker.ratelimit.RateLimitFilter;
 import io.openpulsechecker.ratelimit.RateLimitProperties;
+import io.openpulsechecker.setup.SetupBootstrapProtectionFilter;
 import io.openpulsechecker.setup.SetupProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -41,11 +42,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    ApiKeyAuthenticationFilter apiKeyAuthenticationFilter,
+                                                   SetupBootstrapProtectionFilter setupBootstrapProtectionFilter,
                                                    RateLimitFilter rateLimitFilter) throws Exception {
         return http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .addFilterBefore(apiKeyAuthenticationFilter, BasicAuthenticationFilter.class)
+                .addFilterBefore(setupBootstrapProtectionFilter, BasicAuthenticationFilter.class)
                 .addFilterBefore(rateLimitFilter, BasicAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/index.html", "/assets/**", "/favicon.ico", "/manifest.json").permitAll()
@@ -91,7 +94,7 @@ public class SecurityConfig {
 
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-API-Key"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-API-Key", "X-Setup-Bootstrap-Secret"));
         configuration.setAllowCredentials(allowCredentials);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
