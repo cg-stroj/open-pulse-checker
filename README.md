@@ -80,17 +80,21 @@ Windows (PowerShell):
 ./scripts/run.ps1 -Command start
 ```
 
-### 5) Verify health
+### 5) Verify health + login path
 
 Linux/macOS:
 ```bash
 ./scripts/run.sh health
+curl -i http://localhost:5173/api/v1/admin/auth/login
 ```
 
 Windows (PowerShell):
 ```powershell
 ./scripts/run.ps1 -Command health
+curl.exe -i http://localhost:5173/api/v1/admin/auth/login
 ```
+
+Expected login-path result before auth is configured: `401 Unauthorized` (this confirms frontend proxy -> backend auth route).
 
 Default endpoints (from `.env`):
 - Frontend (UI + API via same-origin proxy): `http://localhost:5173`

@@ -59,10 +59,14 @@ Security note:
 
 Primary bootstrap path:
 ```bash
+./scripts/preflight-checks.sh
 ./scripts/install.sh
 ./scripts/run.sh start
 ./scripts/run.sh health
+curl -i http://localhost:5173/api/v1/admin/auth/login
 ```
+
+Expected login-path result before authentication: `401 Unauthorized`.
 
 Deterministic lifecycle controls:
 ```bash

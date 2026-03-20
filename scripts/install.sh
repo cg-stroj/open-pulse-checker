@@ -21,6 +21,11 @@ if [[ $# -ne 0 ]]; then
   exit 1
 fi
 
+fail() {
+  echo "[fail] $1" >&2
+  exit 1
+}
+
 set_env_value() {
   local file="$1" key="$2" value="$3" tmp
   tmp="$(mktemp)"
@@ -42,12 +47,11 @@ echo "[install] Open Pulse Checker install"
 bootstrap_env
 
 if ! docker_ready; then
-  echo "[fail] Docker + Compose are required for install."
-  echo "[hint] Install/start Docker and retry: ./scripts/install.sh"
-  exit 1
+  fail "Docker + Compose are required for install. Install/start Docker and retry."
 fi
 
+docker compose -f "$ROOT_DIR/docker-compose.full.yml" --env-file "$ROOT_DIR/.env" config >/dev/null || fail "docker compose config failed. Fix .env values and retry."
 docker compose -f "$ROOT_DIR/docker-compose.full.yml" --env-file "$ROOT_DIR/.env" pull postgres || true
 
 echo "[install] Docker install complete."
-echo "[install] Done. Next: ./scripts/run.sh start"
+echo "[next] Start stack: ./scripts/run.sh start"

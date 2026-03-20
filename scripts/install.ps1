@@ -67,7 +67,13 @@ try {
     throw "[fail] Docker + Compose are required for install. Start Docker and retry."
 }
 
+try {
+    docker compose -f "$root/docker-compose.full.yml" --env-file "$root/.env" config | Out-Null
+} catch {
+    throw "[fail] docker compose config failed. Fix .env values and retry."
+}
+
 docker compose -f "$root/docker-compose.full.yml" --env-file "$root/.env" pull postgres | Out-Null
 
 Write-Host "[install] Docker install complete."
-Write-Host "[install] Done. Next: ./scripts/run.ps1 -Command start"
+Write-Host "[next] Start stack: ./scripts/run.ps1 -Command start"

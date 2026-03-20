@@ -38,8 +38,9 @@ elif [[ "$#" -eq 2 ]]; then
   exit 1
 fi
 
-ensure_env_file() {
-  [[ -f "$ROOT_DIR/.env" ]] || cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
+fail() {
+  echo "[fail] $1" >&2
+  exit 1
 }
 
 set_env_value() {
@@ -49,12 +50,38 @@ set_env_value() {
   mv "$tmp" "$file"
 }
 
+get_env_value() {
+  local key="$1" default="$2" file="$ROOT_DIR/.env"
+  if [[ -f "$file" ]]; then
+    local line
+    line="$(grep -E "^${key}=" "$file" | tail -n1 || true)"
+    if [[ -n "$line" ]]; then
+      echo "${line#*=}"
+      return
+    fi
+  fi
+  echo "$default"
+}
+
+ensure_env_files() {
+  [[ -f "$ROOT_DIR/.env" ]] || cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
+  [[ -f "$ROOT_DIR/frontend/.env" ]] || cp "$ROOT_DIR/frontend/.env.example" "$ROOT_DIR/frontend/.env"
+}
+
 docker_ready() {
   command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 && docker compose version >/dev/null 2>&1
 }
 
+require_http_client() {
+  command -v curl >/dev/null 2>&1 || fail "curl is required for health checks. Install curl and retry."
+}
+
 compose_cmd() {
   docker compose -f "$ROOT_DIR/docker-compose.full.yml" --env-file "$ROOT_DIR/.env" "$@"
+}
+
+validate_compose_config() {
+  compose_cmd config >/dev/null || fail "docker compose configuration is invalid. Check .env values and retry."
 }
 
 wait_http() {
@@ -62,21 +89,38 @@ wait_http() {
   until curl -fsS "$url" >/dev/null 2>&1; do
     sleep 2
     elapsed=$((elapsed+2))
-    [[ $elapsed -lt $timeout ]] || { echo "[fail] $name healthcheck timed out: $url"; return 1; }
+    [[ $elapsed -lt $timeout ]] || fail "$name healthcheck timed out after ${timeout}s: $url"
   done
   echo "[ok] $name reachable: $url"
 }
 
-health_docker() {
-  set -a; source "$ROOT_DIR/.env"; set +a
-  OPENPULSE_PORT="${OPENPULSE_PORT:-8080}"
-  OPENPULSE_FRONTEND_PORT="${OPENPULSE_FRONTEND_PORT:-5173}"
-  OPENPULSE_DB_USERNAME="${OPENPULSE_DB_USERNAME:-openpulse}"
-  OPENPULSE_DB_NAME="${OPENPULSE_DB_NAME:-openpulse}"
+print_endpoints() {
+  local backend_port frontend_port
+  backend_port="$(get_env_value OPENPULSE_PORT 8888)"
+  frontend_port="$(get_env_value OPENPULSE_FRONTEND_PORT 5173)"
 
-  compose_cmd exec -T postgres pg_isready -U "$OPENPULSE_DB_USERNAME" -d "$OPENPULSE_DB_NAME" >/dev/null
-  wait_http backend "http://localhost:${OPENPULSE_PORT}/api/v1/health" 120
-  wait_http frontend "http://localhost:${OPENPULSE_FRONTEND_PORT}" 120
+  cat <<EOF
+[next] Open Pulse Checker endpoints:
+  - Frontend UI: http://localhost:${frontend_port}
+  - API via frontend proxy (recommended): http://localhost:${frontend_port}/api/v1
+  - Direct backend API: http://localhost:${backend_port}/api/v1
+  - Backend health: http://localhost:${backend_port}/api/v1/health
+[next] Login path check: curl -i http://localhost:${frontend_port}/api/v1/admin/auth/login
+EOF
+}
+
+health_docker() {
+  local backend_port frontend_port db_user db_name
+  backend_port="$(get_env_value OPENPULSE_PORT 8888)"
+  frontend_port="$(get_env_value OPENPULSE_FRONTEND_PORT 5173)"
+  db_user="$(get_env_value OPENPULSE_DB_USERNAME openpulse)"
+  db_name="$(get_env_value OPENPULSE_DB_NAME openpulse)"
+
+  compose_cmd exec -T postgres pg_isready -U "$db_user" -d "$db_name" >/dev/null || fail "Postgres is not ready. Run './scripts/run.sh logs' for details."
+  echo "[ok] postgres reachable"
+
+  wait_http backend "http://localhost:${backend_port}/api/v1/health" 120
+  wait_http frontend "http://localhost:${frontend_port}" 120
 }
 
 reset_stack() {
@@ -85,24 +129,47 @@ reset_stack() {
     rm -f "$ROOT_DIR/.env" "$ROOT_DIR/frontend/.env"
     echo "[run] removed generated env files (.env, frontend/.env)"
   fi
+  echo "[ok] reset complete"
 }
 
 if ! docker_ready; then
-  echo "[fail] Docker + Compose are required."
-  exit 1
+  fail "Docker + Compose are required. Install/start Docker and retry."
 fi
 
-ensure_env_file
+ensure_env_files
 set_env_value "$ROOT_DIR/.env" OPENPULSE_RUNTIME_MODE docker
+require_http_client
+validate_compose_config
 
 echo "[run] command=$COMMAND"
 
 case "$COMMAND" in
-  start) compose_cmd up -d --build; health_docker ;;
-  stop) compose_cmd down --remove-orphans ;;
-  restart) compose_cmd down --remove-orphans; compose_cmd up -d --build; health_docker ;;
-  status) compose_cmd ps ;;
-  health) health_docker ;;
-  logs) compose_cmd logs --tail=200 ;;
-  reset) reset_stack ;;
+  start)
+    compose_cmd up -d --build
+    health_docker
+    print_endpoints
+    ;;
+  stop)
+    compose_cmd down --remove-orphans
+    echo "[ok] stack stopped"
+    ;;
+  restart)
+    compose_cmd down --remove-orphans
+    compose_cmd up -d --build
+    health_docker
+    print_endpoints
+    ;;
+  status)
+    compose_cmd ps
+    ;;
+  health)
+    health_docker
+    print_endpoints
+    ;;
+  logs)
+    compose_cmd logs --tail=200
+    ;;
+  reset)
+    reset_stack
+    ;;
 esac
