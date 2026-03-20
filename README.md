@@ -93,8 +93,11 @@ Windows (PowerShell):
 ```
 
 Default endpoints (from `.env`):
-- API: `http://localhost:8888/api/v1`
-- Frontend: `http://localhost:5173`
+- Frontend (UI + API via same-origin proxy): `http://localhost:5173`
+- API via frontend origin (recommended): `http://localhost:5173/api/v1`
+- Direct backend API (ops/debug): `http://localhost:8888/api/v1`
+
+For standard Docker install/start there are **no manual API base or CORS edits required**.
 
 ## Deterministic lifecycle commands
 

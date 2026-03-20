@@ -126,30 +126,35 @@ Current rate-limited routes:
 
 If this list changes in code (`RateLimitFilter`), update this section and `DOCUMENTATION.md` together.
 
-## CORS configuration operations (Task #122)
+## CORS and API routing operations
 
-Configuration knobs:
-- `OPENPULSE_SECURITY_CORS_ALLOWED_ORIGINS` — comma-separated allowlist of exact origins.
-- `OPENPULSE_SECURITY_CORS_ALLOW_CREDENTIALS` — set `true` only with explicit trusted origins.
+### Default (recommended): same-origin API via frontend nginx proxy
 
-Recommended values:
-- Dev: `OPENPULSE_SECURITY_CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`
-- Prod: explicit UI domains only (no wildcard).
+Docker runtime defaults now use a single browser origin:
+- Frontend serves UI on `http://<host>:5173`
+- Frontend nginx proxies `/api/*` to backend service on the compose network
+- Frontend bundle default API base is relative (`/api/v1`)
+
+Result: standard install/start requires **no manual API host/IP edits and no CORS tuning**.
+
+### Advanced custom-domain / cross-origin deployments only
+
+Use these knobs only when frontend and backend are intentionally split across origins:
+- `OPENPULSE_FRONTEND_API_BASE_URL` — optional frontend build override (absolute URL or custom path prefix)
+- `OPENPULSE_SECURITY_CORS_ALLOWED_ORIGINS` — comma-separated allowlist of exact browser origins
+- `OPENPULSE_SECURITY_CORS_ALLOW_CREDENTIALS` — set `true` only with explicit trusted origins
+
+After changing API base/CORS values, rebuild affected services:
+```bash
+docker compose -f docker-compose.full.yml up -d --build frontend backend
+```
 
 Validation and safety:
 - If `OPENPULSE_SECURITY_CORS_ALLOW_CREDENTIALS=true` and allowlist contains `*`, startup fails fast.
 - Empty allowlist means no browser cross-origin access is allowed.
-
-Rollback (CORS-only):
-1. Restore last known-good `OPENPULSE_SECURITY_CORS_ALLOWED_ORIGINS` value from deployment config history.
-2. Restart application.
-3. Verify from a trusted origin:
-   ```bash
-   curl -i -X OPTIONS http://localhost:8080/api/v1/health \
-     -H "Origin: https://trusted.example.com" \
-     -H "Access-Control-Request-Method: GET"
-   ```
-4. Confirm `Access-Control-Allow-Origin` appears only for allowed origins.
+- Connectivity sanity check through frontend origin:
+  - `200` on `GET /api/v1/health` confirms proxy path works.
+  - `401` on `GET /api/v1/admin/auth/login` confirms auth endpoint is reachable.
 
 ## Backup before deploy/migration
 1. Put deployment in maintenance window.

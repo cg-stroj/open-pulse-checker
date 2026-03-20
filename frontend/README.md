@@ -29,7 +29,7 @@ npm run dev
 Default frontend URL: `http://localhost:5173`
 
 ## Environment
-- `VITE_API_BASE_URL` (default fallback in code: `http://localhost:8080/api/v1`)
+- `VITE_API_BASE_URL` (default fallback in code: `/api/v1`, served via same-origin nginx proxy in Docker runtime)
 
 ## Auth/session behavior
 - Backend auth model is reused as-is (`HTTP Basic` + `ADMIN` role checks on `/api/v1/admin/**`).
